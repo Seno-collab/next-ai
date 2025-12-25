@@ -5,8 +5,8 @@ export const defaultLocale: Locale = "vi";
 export const messages = {
   vi: {
     site: {
-      name: "next-ai starter",
-      tagline: "Base Next.js + Ant Design + Three.js",
+      name: "QR Lynx",
+      tagline: "Nền tảng menu QR hiện đại",
     },
     actions: {
       refresh: "Làm mới API",
@@ -512,8 +512,8 @@ export const messages = {
   },
   en: {
     site: {
-      name: "next-ai starter",
-      tagline: "Base Next.js + Ant Design + Three.js",
+      name: "QR Lynx",
+      tagline: "Modern QR menu platform",
     },
     actions: {
       refresh: "Refresh API",

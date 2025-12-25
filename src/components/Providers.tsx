@@ -1,6 +1,7 @@
 "use client";
 
 import AntdRegistry from "@/components/AntdRegistry";
+import DocumentMeta from "@/components/DocumentMeta";
 import { LocaleProvider } from "@/i18n/LocaleProvider";
 import { ThemeConfigProvider, ThemeProvider } from "@/theme/ThemeProvider";
 import { usePathname } from "next/navigation";
@@ -8,14 +9,15 @@ import { ToastContainer } from "react-toastify";
 
 export default function Providers({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   const pathname = usePathname();
   const showToast = pathname !== "/login";
 
   return (
     <LocaleProvider>
+      <DocumentMeta />
       <ThemeProvider>
         <AntdRegistry>
           <ThemeConfigProvider>

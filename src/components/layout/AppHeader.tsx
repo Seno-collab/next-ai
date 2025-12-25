@@ -13,7 +13,7 @@ type AppHeaderProps = {
   loading?: boolean;
 };
 
-export default function AppHeader({ onRefresh, loading = false }: AppHeaderProps) {
+export default function AppHeader({ onRefresh, loading = false }: Readonly<AppHeaderProps>) {
   const { locale, setLocale, t } = useLocale();
 
   return (
