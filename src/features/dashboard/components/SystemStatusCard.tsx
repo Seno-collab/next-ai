@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, List, Space, Tag, Typography } from "antd";
+import { Card, Space, Tag, Typography } from "antd";
 import { CloudServerOutlined } from "@ant-design/icons";
 import { systemStatuses } from "@/features/dashboard/constants";
 import { useLocale } from "@/hooks/useLocale";
@@ -32,10 +32,9 @@ export function SystemStatusCard({ className }: SystemStatusCardProps) {
       }
       variant="borderless"
     >
-      <List
-        dataSource={systemStatuses}
-        renderItem={(item) => (
-          <List.Item style={{ display: "flex", justifyContent: "space-between" }}>
+      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+        {systemStatuses.map((item) => (
+          <div key={item.id} className="dashboard-status-row">
             <Space orientation="vertical" size={0}>
               <Text strong>{t(item.nameKey)}</Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -48,9 +47,9 @@ export function SystemStatusCard({ className }: SystemStatusCardProps) {
                 {t(`systemStatus.statusLabel.${item.status}`)}
               </Tag>
             </Space>
-          </List.Item>
-        )}
-      />
+          </div>
+        ))}
+      </Space>
     </Card>
   );
 }

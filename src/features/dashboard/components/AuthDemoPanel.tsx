@@ -14,7 +14,7 @@ import {
   Typography,
 } from "antd";
 import { useMemo } from "react";
-import { useAuthDemo } from "@/hooks/useAuthDemo";
+import { useAuth } from "@/hooks/useAuth";
 import type { AuthCredentials, RegisterPayload } from "@/features/auth/types";
 import { useLocale } from "@/hooks/useLocale";
 
@@ -51,7 +51,7 @@ export function AuthDemoPanel() {
     refreshAuth,
     changePassword,
     isAuthenticated,
-  } = useAuthDemo();
+  } = useAuth();
 
   const loadingMap = useMemo(
     () => ({
@@ -66,7 +66,7 @@ export function AuthDemoPanel() {
   );
 
   return (
-    <Card title={t("dashboard.authTitle")} variant="borderless" bodyStyle={{ padding: 32 }}>
+    <Card title={t("dashboard.authTitle")} variant="borderless" styles={{ body: { padding: 32 } }}>
       <Space orientation="vertical" size="large" style={{ width: "100%" }}>
         <Row gutter={[24, 24]}>
           <Col xs={24} md={12}>
@@ -192,8 +192,8 @@ export function AuthDemoPanel() {
           </Form.Item>
         </Form>
 
-        {message && <Alert message={t(`auth.success.${message}`)} type="success" showIcon />}
-        {error && <Alert message={error} type="error" showIcon />}
+        {message && <Alert title={t(`auth.success.${message}`)} type="success" showIcon />}
+        {error && <Alert title={error} type="error" showIcon />}
 
         <Space orientation="vertical" style={{ width: "100%" }}>
           <Tag color={isAuthenticated ? "green" : "default"}>

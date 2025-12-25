@@ -17,18 +17,17 @@ const STORAGE_KEY = "next-ai-theme";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getInitialMode(): ThemeMode {
-  if (typeof window === "undefined") {
-    return "dark";
-  }
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  const stored = globalThis.window.localStorage.getItem(STORAGE_KEY);
   if (stored === "dark" || stored === "light") {
     return stored;
   }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return globalThis.window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(() => getInitialMode());
+type ThemeProviderProps = Readonly<{ children: React.ReactNode }>;
+
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  const [mode, setMode] = useState<ThemeMode>("dark");
 
   const value = useMemo(
     () => ({
@@ -41,14 +40,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, mode);
+    const nextMode = getInitialMode();
+    setMode(nextMode);
+  }, []);
+
+  useEffect(() => {
+    globalThis.window.localStorage.setItem(STORAGE_KEY, mode);
     document.documentElement.dataset.theme = mode;
   }, [mode]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-export function ThemeConfigProvider({ children }: { children: React.ReactNode }) {
+export function ThemeConfigProvider({ children }: ThemeProviderProps) {
   const { isDark } = useTheme();
 
   const themeConfig = useMemo(

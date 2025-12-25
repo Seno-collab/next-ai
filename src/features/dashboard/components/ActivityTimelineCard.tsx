@@ -20,7 +20,7 @@ export function ActivityTimelineCard() {
       <Timeline
         items={activityFeed.map((item) => ({
           color: statusColorMap[item.status],
-          children: (
+          content: (
             <Space orientation="vertical" size={0}>
               <Space size="small">
                 <Text strong>{t(item.labelKey)}</Text>

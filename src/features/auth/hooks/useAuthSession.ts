@@ -1,0 +1,204 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { fetchJson, setStoredAuthTokens, type StoredAuthTokens } from "@/lib/api/client";
+import type { AuthCredentials, AuthPublicUser, RegisterPayload } from "@/features/auth/types";
+import { useLocale } from "@/hooks/useLocale";
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+type SessionState = {
+  user: AuthPublicUser | null;
+  authenticated: boolean;
+};
+
+type AuthAction = "login" | "logout" | "register" | "refresh" | "profile";
+
+type AuthResponsePayload = {
+  message?: string;
+  response_code?: string | number;
+  data?: Record<string, unknown>;
+  user?: AuthPublicUser | null;
+  tokens?: Record<string, unknown>;
+};
+
+type TokenRecord = Record<string, unknown>;
+
+function parseResponseCode(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function extractTokens(payload: unknown): StoredAuthTokens | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const record = payload as TokenRecord;
+  const sources: TokenRecord[] = [];
+  if (record.data && typeof record.data === "object") {
+    sources.push(record.data as TokenRecord);
+  }
+  if (record.tokens && typeof record.tokens === "object") {
+    sources.push(record.tokens as TokenRecord);
+  }
+  sources.push(record);
+
+  const readString = (value: unknown) => (typeof value === "string" ? value : undefined);
+  const readNumber = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+
+  for (const source of sources) {
+    const accessToken = readString(source.accessToken ?? source.access_token);
+    const refreshToken = readString(source.refreshToken ?? source.refresh_token);
+    if (accessToken && refreshToken) {
+      return {
+        accessToken,
+        refreshToken,
+        expiresIn: readNumber(source.expiresIn ?? source.expires_in),
+      };
+    }
+  }
+
+  return null;
+}
+
+export function useAuthSession() {
+  const { t } = useLocale();
+  const [session, setSession] = useState<SessionState | null>(null);
+  const [loadingAction, setLoadingAction] = useState<AuthAction | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const login = useCallback(async (payload: AuthCredentials) => {
+    setLoadingAction("login");
+    setError(null);
+    try {
+      const response = await fetchJson<AuthResponsePayload>("/api/auth/login", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(payload),
+      });
+      const responseCode = parseResponseCode(response.response_code);
+      if (responseCode !== null && responseCode >= 400) {
+        const message = typeof response.message === "string" ? response.message : t("auth.errors.loginFailed");
+        setError(message);
+        throw new Error(message);
+      }
+      const tokens = extractTokens(response);
+      if (!tokens) {
+        const message = t("auth.errors.missingTokenFromServer");
+        setError(message);
+        throw new Error(message);
+      }
+      setStoredAuthTokens(tokens);
+      const user =
+        response.user ??
+        (response.data && typeof response.data === "object"
+          ? ((response.data as TokenRecord).user as AuthPublicUser | null | undefined)
+          : null) ??
+        null;
+      setSession({ authenticated: true, user });
+      return response;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("auth.errors.loginFailed");
+      setError(message);
+      throw err;
+    } finally {
+      setLoadingAction(null);
+    }
+  }, [t]);
+
+  const register = useCallback(async (payload: RegisterPayload) => {
+    setLoadingAction("register");
+    setError(null);
+    try {
+      const response = await fetchJson<AuthResponsePayload>("/api/auth/register", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(payload),
+      });
+      const tokens = extractTokens(response);
+      if (tokens) {
+        setStoredAuthTokens(tokens);
+      }
+      const user =
+        response.user ??
+        (response.data && typeof response.data === "object"
+          ? ((response.data as TokenRecord).user as AuthPublicUser | null | undefined)
+          : null) ??
+        null;
+      setSession({ authenticated: Boolean(tokens?.accessToken) || Boolean(user), user });
+      return response;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("auth.errors.registerFailed");
+      setError(message);
+      throw err;
+    } finally {
+      setLoadingAction(null);
+    }
+  }, [t]);
+
+  const fetchProfile = useCallback(async () => {
+    if (!session?.authenticated) {
+      setError(t("errors.notSignedIn"));
+      return null;
+    }
+    setLoadingAction("profile");
+    setError(null);
+    try {
+      return session.user ?? null;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("auth.errors.profileFailed");
+      setError(message);
+      throw err;
+    } finally {
+      setLoadingAction(null);
+    }
+  }, [session, t]);
+
+  const refresh = useCallback(async () => {
+    setLoadingAction("refresh");
+    setError(t("auth.errors.refreshUnsupported"));
+    setLoadingAction(null);
+    return null;
+  }, [t]);
+
+  const logout = useCallback(async () => {
+    setLoadingAction("logout");
+    setError(null);
+    try {
+      await fetchJson<{ message: string }>("/api/auth/logout", {
+        method: "POST",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("auth.errors.logoutFailed");
+      setError(message);
+      throw err;
+    } finally {
+      setStoredAuthTokens(null);
+      setSession(null);
+      setLoadingAction(null);
+    }
+  }, [t]);
+
+  return {
+    session,
+    hydrated,
+    loadingAction,
+    error,
+    login,
+    register,
+    logout,
+    refresh,
+    fetchProfile,
+  };
+}

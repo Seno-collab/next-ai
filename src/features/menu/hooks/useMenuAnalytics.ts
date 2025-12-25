@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchJson } from "@/lib/api/client";
 import type { MenuAnalytics } from "@/features/menu/types";
+import { useLocale } from "@/hooks/useLocale";
 
 type MenuAnalyticsResponse = { analytics: MenuAnalytics };
 
 export function useMenuAnalytics() {
+  const { t } = useLocale();
   const [data, setData] = useState<MenuAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,12 +22,12 @@ export function useMenuAnalytics() {
       });
       setData(response.analytics);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Không thể tải analytics";
+      const message = err instanceof Error ? err.message : t("menu.errors.analyticsFailed");
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     refresh();

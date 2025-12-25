@@ -1,9 +1,10 @@
 "use client";
 
-import { Alert, Card, Col, Empty, List, Progress, Row, Space, Statistic, Tag, Typography } from "antd";
+import { Alert, Card, Col, Empty, Progress, Row, Space, Statistic, Tag, Typography } from "antd";
 import type { MenuAnalytics } from "@/features/menu/types";
 import { menuCategories } from "@/features/menu/constants";
 import { useLocale } from "@/hooks/useLocale";
+import { useEffect, useState } from "react";
 
 const { Text } = Typography;
 
@@ -15,6 +16,10 @@ type MenuAnalyticsPanelProps = {
 
 export function MenuAnalyticsPanel({ data, loading, error }: MenuAnalyticsPanelProps) {
   const { t, locale } = useLocale();
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
   const formatter = new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-US", {
     style: "currency",
     currency: "VND",
@@ -45,7 +50,10 @@ export function MenuAnalyticsPanel({ data, loading, error }: MenuAnalyticsPanelP
             />
             {data?.updatedAt && (
               <Text type="secondary">
-                {t("analytics.updatedAt")}: {new Date(data.updatedAt).toLocaleString()}
+                {t("analytics.updatedAt")}:{" "}
+                {hydrated
+                  ? new Date(data.updatedAt).toLocaleString(locale === "vi" ? "vi-VN" : "en-US")
+                  : "--"}
               </Text>
             )}
           </Space>
@@ -72,18 +80,19 @@ export function MenuAnalyticsPanel({ data, loading, error }: MenuAnalyticsPanelP
       </Col>
       <Col xs={24} xl={8}>
         <Card title={t("analytics.topItems")} loading={loading} variant="borderless" className="glass-card">
-          <List
-            dataSource={data?.topItems ?? []}
-            locale={{ emptyText: t("menu.empty") }}
-            renderItem={(item) => (
-              <List.Item>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+            {(data?.topItems ?? []).map((item) => (
+              <div key={item.id}>
                 <Space orientation="vertical" size={0}>
-                  <Text strong>{item.name}</Text>
+                  <Text strong>{t(item.name)}</Text>
                   <Text type="secondary">{formatter.format(item.price)}</Text>
                 </Space>
-              </List.Item>
+              </div>
+            ))}
+            {(data?.topItems ?? []).length === 0 && (
+              <Text type="secondary">{t("menu.empty")}</Text>
             )}
-          />
+          </Space>
         </Card>
       </Col>
     </Row>

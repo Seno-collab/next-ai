@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import type {
   AuthCredentials,
   AuthPublicUser,
@@ -8,7 +7,9 @@ import type {
   AuthTokens,
   RegisterPayload,
 } from "@/features/auth/types";
-import { fetchJson } from "@/lib/api/client";
+import { useLocale } from "@/hooks/useLocale";
+import { fetchJson, setStoredAuthTokens } from "@/lib/api/client";
+import { useCallback, useState } from "react";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -19,7 +20,35 @@ type ChangePasswordPayload = {
   newPassword: string;
 };
 
-export function useAuthDemo() {
+type TokenRecord = Record<string, unknown>;
+
+function extractTokens(payload: unknown): AuthTokens | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const record = payload as TokenRecord;
+  const sources: TokenRecord[] = [];
+  if (record.tokens && typeof record.tokens === "object") {
+    sources.push(record.tokens as TokenRecord);
+  }
+  if (record.data && typeof record.data === "object") {
+    sources.push(record.data as TokenRecord);
+  }
+  sources.push(record);
+
+  for (const source of sources) {
+    const accessToken = source.accessToken ?? source.access_token;
+    const refreshToken = source.refreshToken ?? source.refresh_token;
+    if (typeof accessToken === "string" && typeof refreshToken === "string") {
+      return { accessToken, refreshToken };
+    }
+  }
+
+  return null;
+}
+
+export function useAuth() {
+  const { t } = useLocale();
   const [user, setUser] = useState<AuthPublicUser | null>(null);
   const [profile, setProfile] = useState<AuthPublicUser | null>(null);
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
@@ -35,12 +64,12 @@ export function useAuthDemo() {
       await task();
       setMessage(action);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Đã có lỗi xảy ra";
+      const errorMessage = err instanceof Error ? err.message : t("errors.generic");
       setError(errorMessage);
     } finally {
       setLoadingAction(null);
     }
-  }, []);
+  }, [t]);
 
   const register = useCallback(
     async (payload: RegisterPayload) =>
@@ -51,9 +80,11 @@ export function useAuthDemo() {
           body: JSON.stringify(payload),
           cache: "no-store",
         });
-        setUser(result.user);
-        setProfile(result.user);
-        setTokens(result.tokens);
+        setUser(result.user ?? null);
+        setProfile(result.user ?? null);
+        const nextTokens = extractTokens(result);
+        setTokens(nextTokens);
+        setStoredAuthTokens(nextTokens);
       }),
     [withAction],
   );
@@ -67,28 +98,30 @@ export function useAuthDemo() {
           body: JSON.stringify(payload),
           cache: "no-store",
         });
-        setUser(result.user);
-        setProfile(result.user);
-        setTokens(result.tokens);
+        setUser(result.user ?? null);
+        setProfile(result.user ?? null);
+        const nextTokens = extractTokens(result);
+        setTokens(nextTokens);
+        setStoredAuthTokens(nextTokens);
       }),
     [withAction],
   );
 
   const authorizedHeaders = useCallback(() => {
     if (!tokens) {
-      throw new Error("Chưa đăng nhập");
+      throw new Error(t("errors.notSignedIn"));
     }
     return {
       ...JSON_HEADERS,
       Authorization: `Bearer ${tokens.accessToken}`,
     } as HeadersInit;
-  }, [tokens]);
+  }, [t, tokens]);
 
   const logout = useCallback(
     async () =>
       withAction("logout", async () => {
         if (!tokens) {
-          throw new Error("Chưa đăng nhập");
+          throw new Error(t("errors.notSignedIn"));
         }
         await fetchJson<{ message: string }>("/api/auth/logout", {
           method: "POST",
@@ -98,8 +131,9 @@ export function useAuthDemo() {
         setUser(null);
         setProfile(null);
         setTokens(null);
+        setStoredAuthTokens(null);
       }),
-    [authorizedHeaders, tokens, withAction],
+    [authorizedHeaders, t, tokens, withAction],
   );
 
   const fetchProfile = useCallback(
@@ -120,7 +154,7 @@ export function useAuthDemo() {
     async () =>
       withAction("refresh", async () => {
         if (!tokens?.refreshToken) {
-          throw new Error("Không có refresh token");
+          throw new Error(t("errors.refreshTokenMissing"));
         }
         const response = await fetchJson<{ tokens: AuthTokens }>("/api/auth/refresh-token", {
           method: "POST",
@@ -128,9 +162,11 @@ export function useAuthDemo() {
           body: JSON.stringify({ refreshToken: tokens.refreshToken }),
           cache: "no-store",
         });
-        setTokens(response.tokens);
+        const nextTokens = extractTokens(response);
+        setTokens(nextTokens);
+        setStoredAuthTokens(nextTokens);
       }),
-    [tokens, withAction],
+    [t, tokens, withAction],
   );
 
   const changePassword = useCallback(

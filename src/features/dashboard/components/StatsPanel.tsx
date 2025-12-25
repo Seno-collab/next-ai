@@ -24,7 +24,7 @@ export function StatsPanel() {
             key={titleKey}
             size="small"
             style={{ background: "#f5f8ff" }}
-            bodyStyle={{ display: "flex", gap: 12 }}
+            styles={{ body: { display: "flex", gap: 12 } }}
           >
             <div style={{ fontSize: 20, color: "#1677ff" }}>
               <Icon />

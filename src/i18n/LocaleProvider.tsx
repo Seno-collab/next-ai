@@ -17,7 +17,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocale] = useState<Locale>(defaultLocale);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = globalThis.window.localStorage.getItem(STORAGE_KEY);
     if (stored === "vi" || stored === "en") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate with server default first
       setLocale(stored);
@@ -25,7 +25,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, locale);
+    globalThis.window.localStorage.setItem(STORAGE_KEY, locale);
   }, [locale]);
 
   const t = useMemo(() => {

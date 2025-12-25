@@ -11,7 +11,7 @@ import { storeToken, verifyToken, revokeTokensByEmail } from "@/features/auth/se
 
 function toPublicUser(user: ReturnType<typeof findUserByEmail>): AuthPublicUser {
   if (!user) {
-    throw new Error("User not found");
+    throw new Error("auth.errors.userNotFound");
   }
   return {
     id: user.id,
@@ -24,7 +24,7 @@ function toPublicUser(user: ReturnType<typeof findUserByEmail>): AuthPublicUser 
 
 function assertCredentials({ email, password }: AuthCredentials) {
   if (!email || !password) {
-    throw new Error("Thiếu email hoặc mật khẩu");
+    throw new Error("auth.errors.credentialsMissing");
   }
 }
 
@@ -39,11 +39,11 @@ function issueTokens(email: string): AuthTokens {
 export function registerUser(payload: RegisterPayload): AuthResponse {
   const { email, password, name } = payload;
   if (!email || !password || !name) {
-    throw new Error("Thiếu thông tin đăng ký");
+    throw new Error("auth.errors.registrationInfoMissing");
   }
   const existing = findUserByEmail(email);
   if (existing) {
-    throw new Error("Email đã được sử dụng");
+    throw new Error("auth.errors.emailInUse");
   }
   const timestamp = new Date().toISOString();
   const user = saveUser({
@@ -62,7 +62,7 @@ export function loginUser(credentials: AuthCredentials): AuthResponse {
   assertCredentials(credentials);
   const user = findUserByEmail(credentials.email);
   if (!user || user.password !== credentials.password) {
-    throw new Error("Email hoặc mật khẩu không đúng");
+    throw new Error("auth.errors.invalidCredentials");
   }
   revokeTokensByEmail(user.email);
   const tokens = issueTokens(user.email);
@@ -84,11 +84,11 @@ export function getUserFromAccessToken(token: string) {
 export function requireAuthContext(token: string) {
   const email = verifyToken(token, "access");
   if (!email) {
-    throw new Error("Access token không hợp lệ");
+    throw new Error("auth.errors.accessTokenInvalid");
   }
   const user = findUserByEmail(email);
   if (!user) {
-    throw new Error("Không tìm thấy người dùng");
+    throw new Error("auth.errors.userNotFound");
   }
   return { email, user: toPublicUser(user) };
 }
@@ -96,7 +96,7 @@ export function requireAuthContext(token: string) {
 export function refreshTokens(refreshToken: string): AuthTokens {
   const email = verifyToken(refreshToken, "refresh");
   if (!email) {
-    throw new Error("Refresh token không hợp lệ");
+    throw new Error("auth.errors.refreshTokenInvalid");
   }
   revokeTokensByEmail(email);
   return issueTokens(email);
@@ -105,12 +105,24 @@ export function refreshTokens(refreshToken: string): AuthTokens {
 export function changePassword(email: string, currentPassword: string, newPassword: string) {
   const user = findUserByEmail(email);
   if (!user || user.password !== currentPassword) {
-    throw new Error("Mật khẩu hiện tại không chính xác");
+    throw new Error("auth.errors.currentPasswordInvalid");
   }
   if (!newPassword || newPassword.length < 6) {
-    throw new Error("Mật khẩu mới phải có ít nhất 6 ký tự");
+    throw new Error("auth.errors.newPasswordTooShort");
   }
   const updated = updateUser(email, { password: newPassword });
+  return toPublicUser(updated);
+}
+
+export function updateProfile(email: string, name: string) {
+  if (!name?.trim()) {
+    throw new Error("auth.errors.profileInfoMissing");
+  }
+  const user = findUserByEmail(email);
+  if (!user) {
+    throw new Error("auth.errors.userNotFound");
+  }
+  const updated = updateUser(email, { name: name.trim() });
   return toPublicUser(updated);
 }
 

@@ -1,29 +1,56 @@
 "use client";
 
-import { Button, Card, Col, Row, Space, Tag, Typography } from "antd";
-import { useMemo, useState, type CSSProperties } from "react";
-import { Playfair_Display, Space_Grotesk } from "next/font/google";
-import { useMenuItems } from "@/features/menu/hooks/useMenuItems";
+import { MenuItemPreview3D } from "@/features/menu/components/MenuItemPreview3D";
+import { OrderBurstCanvas, type OrderBurstHandle } from "@/features/menu/components/OrderBurstCanvas";
 import { menuCategories } from "@/features/menu/constants";
+import { useMenuItems } from "@/features/menu/hooks/useMenuItems";
+import type { MenuItem } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
+import { useTheme } from "@/hooks/useTheme";
+import { BulbOutlined, MoonOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  Button,
+  Card,
+  Col,
+  Input,
+  Modal,
+  Row,
+  Segmented,
+  Select,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+} from "antd";
+import { Playfair_Display, Space_Grotesk } from "next/font/google";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 const { Title, Paragraph, Text } = Typography;
 
 const displayFont = Playfair_Display({ subsets: ["latin"], variable: "--font-display" });
 const bodyFont = Space_Grotesk({ subsets: ["latin"], variable: "--font-body" });
 
+type SortKey = "featured" | "priceAsc" | "priceDesc" | "nameAsc" | "nameDesc";
+
 const accentMap: Record<string, string> = {
-  coffee: "#f59e0b",
-  tea: "#fb7185",
-  dessert: "#f97316",
-  food: "#facc15",
-  other: "#fda4af",
+  coffee: "#b45309",
+  tea: "#0f766e",
+  dessert: "#e11d48",
+  food: "#2563eb",
+  other: "#64748b",
 };
 
 export default function MenuPage() {
   const { items } = useMenuItems();
-  const { t, locale } = useLocale();
+  const { t, locale, setLocale } = useLocale();
+  const { isDark, setMode } = useTheme();
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("featured");
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [zoomedItem, setZoomedItem] = useState<MenuItem | null>(null);
+  const burstRef = useRef<OrderBurstHandle>(null);
 
   const formatter = new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-US", {
     style: "currency",
@@ -31,17 +58,95 @@ export default function MenuPage() {
     maximumFractionDigits: 0,
   });
 
-  const availableItems = items.filter((item) => item.available);
-  const filteredItems =
-    activeCategory === "all"
-      ? availableItems
-      : availableItems.filter((item) => item.category === activeCategory);
+  const availableItems = useMemo(() => items.filter((item) => item.available), [items]);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const nameCollator = useMemo(() => new Intl.Collator(locale === "vi" ? "vi-VN" : "en-US"), [locale]);
+
+  const filteredItems = useMemo(() => {
+    const searched = normalizedSearch
+      ? availableItems.filter((item) => {
+          const name = t(item.name).toLowerCase();
+          const description = item.description ? t(item.description).toLowerCase() : "";
+          return name.includes(normalizedSearch) || description.includes(normalizedSearch);
+        })
+      : availableItems;
+    const categoryFiltered =
+      activeCategory === "all" ? searched : searched.filter((item) => item.category === activeCategory);
+    const sorted = [...categoryFiltered];
+    switch (sortKey) {
+      case "priceAsc":
+        sorted.sort((a, b) => a.price - b.price);
+        break;
+      case "priceDesc":
+        sorted.sort((a, b) => b.price - a.price);
+        break;
+      case "nameAsc":
+        sorted.sort((a, b) => nameCollator.compare(t(a.name), t(b.name)));
+        break;
+      case "nameDesc":
+        sorted.sort((a, b) => nameCollator.compare(t(b.name), t(a.name)));
+        break;
+      default:
+        break;
+    }
+    return sorted;
+  }, [activeCategory, availableItems, nameCollator, normalizedSearch, sortKey, t]);
   const averagePrice =
     availableItems.length === 0
       ? 0
       : availableItems.reduce((sum, item) => sum + item.price, 0) / availableItems.length;
 
-  const highlightItem = filteredItems[0] ?? availableItems[0] ?? null;
+  useEffect(() => {
+    if (!selectedItem || !filteredItems.some((item) => item.id === selectedItem.id)) {
+      setSelectedItem(filteredItems[0] ?? null);
+    }
+  }, [filteredItems, selectedItem]);
+
+  const handleCardMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const card = event.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const tiltX = ((y / rect.height) * 2 - 1) * -6;
+    const tiltY = ((x / rect.width) * 2 - 1) * 6;
+    card.style.setProperty("--tilt-x", `${tiltX.toFixed(2)}deg`);
+    card.style.setProperty("--tilt-y", `${tiltY.toFixed(2)}deg`);
+  };
+
+  const handleCardMouseLeave = (event: React.MouseEvent<HTMLDivElement>) => {
+    const card = event.currentTarget;
+    card.style.setProperty("--tilt-x", "0deg");
+    card.style.setProperty("--tilt-y", "0deg");
+  };
+
+  const handleAddToOrder = (item: MenuItem, event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    setSelectedItem(item);
+    if (globalThis.window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    burstRef.current?.burstAt(event.clientX, event.clientY);
+  };
+
+  const handleImageZoom = (item: MenuItem, event?: React.SyntheticEvent) => {
+    event?.stopPropagation();
+    if (!item.imageUrl?.trim()) {
+      return;
+    }
+    setSelectedItem(item);
+    setZoomedItem(item);
+  };
+
+  const handleImageKeyDown =
+    (item: MenuItem) => (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") {
+        return;
+      }
+      event.preventDefault();
+      handleImageZoom(item, event);
+    };
+
+  const spotlightItem = selectedItem;
 
   const categoryLabel = (value: string) => {
     const category = menuCategories.find((item) => item.value === value);
@@ -56,10 +161,72 @@ export default function MenuPage() {
     [t],
   );
 
+  const sortOptions = useMemo(
+    () => [
+      { value: "featured", label: t("menu.sort.featured") },
+      { value: "priceAsc", label: t("menu.sort.priceAsc") },
+      { value: "priceDesc", label: t("menu.sort.priceDesc") },
+      { value: "nameAsc", label: t("menu.sort.nameAsc") },
+      { value: "nameDesc", label: t("menu.sort.nameDesc") },
+    ],
+    [t],
+  );
+
+  const specialItems = useMemo(() => {
+    if (availableItems.length === 0) {
+      return [];
+    }
+    const sortedByPrice = [...availableItems].sort((a, b) => b.price - a.price);
+    const picks: MenuItem[] = [];
+    const pushUnique = (item: MenuItem | undefined) => {
+      if (!item || picks.some((existing) => existing.id === item.id)) {
+        return;
+      }
+      picks.push(item);
+    };
+    pushUnique(sortedByPrice[0]);
+    pushUnique(sortedByPrice[Math.floor(sortedByPrice.length / 2)]);
+    pushUnique(sortedByPrice[sortedByPrice.length - 1]);
+    return picks;
+  }, [availableItems]);
+
+  const specialBadgeKeys = [
+    "menu.specials.labels.signature",
+    "menu.specials.labels.popular",
+    "menu.specials.labels.value",
+  ];
+
+  const zoomedImageUrl = zoomedItem?.imageUrl?.trim();
+
   return (
     <div className={`menu-shell ${displayFont.variable} ${bodyFont.variable}`}>
       <div className="menu-backdrop" />
+      <OrderBurstCanvas ref={burstRef} />
       <Space orientation="vertical" size="large" style={{ width: "100%" }} className="menu-content">
+        <div className="menu-topbar">
+          <div className="menu-theme-toggle">
+            <Text className="menu-theme-label">{t("menu.theme.label")}</Text>
+            <Switch
+              checked={isDark}
+              checkedChildren={<MoonOutlined />}
+              unCheckedChildren={<BulbOutlined />}
+              onChange={(checked) => setMode(checked ? "dark" : "light")}
+              aria-label={t("menu.theme.label")}
+            />
+          </div>
+          <div className="menu-locale-toggle">
+            <Text className="menu-locale-label">{t("menu.language.label")}</Text>
+            <Segmented
+              size="small"
+              options={[
+                { label: "VI", value: "vi" },
+                { label: "EN", value: "en" },
+              ]}
+              value={locale}
+              onChange={(value) => setLocale(value as "vi" | "en")}
+            />
+          </div>
+        </div>
         <Card variant="borderless" className="menu-hero glass-card">
           <Row gutter={[32, 32]} align="middle">
             <Col xs={24} lg={14}>
@@ -94,12 +261,16 @@ export default function MenuPage() {
                 <div className="menu-spotlight-glow" />
                 <Card variant="borderless" className="menu-spotlight-card">
                   <Text className="menu-spotlight-label">{t("menu.spotlightTitle")}</Text>
-                  {highlightItem ? (
-                    <Space orientation="vertical" size={4}>
-                      <Text className="menu-spotlight-name">{highlightItem.name}</Text>
-                      <Text type="secondary">{highlightItem.description}</Text>
+                  {spotlightItem ? (
+                    <Space orientation="vertical" size={8}>
+                      <MenuItemPreview3D
+                        imageUrl={spotlightItem.imageUrl}
+                        accent={accentMap[spotlightItem.category] ?? "#f97316"}
+                      />
+                      <Text className="menu-spotlight-name">{t(spotlightItem.name)}</Text>
+                      <Text type="secondary">{t(spotlightItem.description)}</Text>
                       <Text className="menu-spotlight-price">
-                        {formatter.format(highlightItem.price)}
+                        {formatter.format(spotlightItem.price)}
                       </Text>
                     </Space>
                   ) : (
@@ -111,16 +282,116 @@ export default function MenuPage() {
           </Row>
         </Card>
 
+        {specialItems.length > 0 && (
+          <div className="menu-specials">
+            <div className="menu-specials-header">
+              <div>
+                <Title level={3} className="menu-specials-title">
+                  {t("menu.specials.title")}
+                </Title>
+                <Text type="secondary" className="menu-specials-subtitle">
+                  {t("menu.specials.subtitle")}
+                </Text>
+              </div>
+              <Tag className="menu-specials-tag">{t("menu.specials.tag")}</Tag>
+            </div>
+            <Row gutter={[20, 20]} className="menu-specials-grid">
+              {specialItems.map((item, index) => {
+                const accent = accentMap[item.category] ?? "#f97316";
+                const imageUrl = item.imageUrl?.trim();
+                const badgeKey = specialBadgeKeys[index] ?? "menu.specials.labels.signature";
+                const isActive = selectedItem?.id === item.id;
+                const isFeatured = index === 0;
+                return (
+                  <Col xs={24} md={12} lg={isFeatured ? 12 : 6} key={item.id}>
+                    <Card
+                      variant="borderless"
+                      className={`menu-special-card glass-card${isFeatured ? " menu-special-card--featured" : ""}${
+                        isActive ? " is-active" : ""
+                      }`}
+                      style={{ "--accent": accent } as CSSProperties}
+                      onClick={() => setSelectedItem(item)}
+                      onMouseMove={handleCardMouseMove}
+                      onMouseLeave={handleCardMouseLeave}
+                    >
+                      <div className="menu-special-top">
+                        <Tag className="menu-special-badge">{t(badgeKey)}</Tag>
+                        <Text className="menu-special-price">{formatter.format(item.price)}</Text>
+                      </div>
+                      <div
+                        className={`menu-special-media${imageUrl ? " menu-zoomable" : ""}`}
+                        role={imageUrl ? "button" : undefined}
+                        tabIndex={imageUrl ? 0 : undefined}
+                        aria-label={imageUrl ? t(item.name) : undefined}
+                        onClick={(event) => handleImageZoom(item, event)}
+                        onKeyDown={handleImageKeyDown(item)}
+                      >
+                        {imageUrl && (
+                          <Image
+                            src={imageUrl}
+                            alt={t(item.name)}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 320px"
+                          />
+                        )}
+                      </div>
+                      <Text className="menu-special-name">{t(item.name)}</Text>
+                      <Text type="secondary" className="menu-special-description">
+                        {t(item.description)}
+                      </Text>
+                      <div className="menu-special-footer">
+                        <Tag className="menu-special-category">{categoryLabel(item.category)}</Tag>
+                        <Button
+                          type="text"
+                          className="menu-special-action menu-add"
+                          onClick={(event) => handleAddToOrder(item, event)}
+                        >
+                          {t("menu.specials.cta")}
+                        </Button>
+                      </div>
+                    </Card>
+                  </Col>
+                );
+              })}
+            </Row>
+          </div>
+        )}
+
         <div className="menu-section-header">
           <div>
             <Title level={3} className="menu-section-title">
               {t("menu.browseTitle")}
             </Title>
-            <Text type="secondary">{t("menu.browseSubtitle")}</Text>
+            <Text type="secondary" className="menu-section-subtitle">
+              {t("menu.browseSubtitle")}
+            </Text>
           </div>
           <Tag className="menu-count">
             {filteredItems.length} {t("menu.itemsLabel")}
           </Tag>
+        </div>
+        <div className="menu-toolbar">
+          <div className="menu-toolbar-field">
+            <Text className="menu-field-label">{t("menu.search.label")}</Text>
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder={t("menu.search.placeholder")}
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              size="large"
+            />
+          </div>
+          <div className="menu-toolbar-field">
+            <Text className="menu-field-label">{t("menu.sort.label")}</Text>
+            <Select
+              value={sortKey}
+              onChange={(value) => setSortKey(value as SortKey)}
+              options={sortOptions}
+              size="large"
+              dropdownClassName="menu-sort-dropdown"
+            />
+          </div>
         </div>
         <Space wrap className="menu-filters">
           {filterOptions.map((option) => (
@@ -138,23 +409,44 @@ export default function MenuPage() {
         <Row gutter={[24, 24]}>
           {filteredItems.map((item) => {
             const accent = accentMap[item.category] ?? "#60a5fa";
+            const imageUrl = item.imageUrl?.trim();
             return (
               <Col xs={24} sm={12} lg={8} key={item.id}>
                 <Card
                   variant="borderless"
                   className="menu-card glass-card"
                   style={{ "--accent": accent } as CSSProperties}
+                  onClick={() => setSelectedItem(item)}
+                  onMouseMove={handleCardMouseMove}
+                  onMouseLeave={handleCardMouseLeave}
                 >
+                  <div
+                    className={`menu-card-media${imageUrl ? " menu-zoomable" : ""}`}
+                    role={imageUrl ? "button" : undefined}
+                    tabIndex={imageUrl ? 0 : undefined}
+                    aria-label={imageUrl ? t(item.name) : undefined}
+                    onClick={(event) => handleImageZoom(item, event)}
+                    onKeyDown={handleImageKeyDown(item)}
+                  >
+                    {imageUrl && (
+                      <Image
+                        src={imageUrl}
+                        alt={t(item.name)}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
+                    )}
+                  </div>
                   <div className="menu-card-header">
                     <Tag className="menu-category-tag">{categoryLabel(item.category)}</Tag>
                     <Text className="menu-price">{formatter.format(item.price)}</Text>
                   </div>
-                  <Text className="menu-card-title">{item.name}</Text>
+                  <Text className="menu-card-title">{t(item.name)}</Text>
                   <Text type="secondary" className="menu-card-description">
-                    {item.description}
+                    {t(item.description)}
                   </Text>
                   <div className="menu-card-footer">
-                    <Button type="text" className="menu-add">
+                    <Button type="text" className="menu-add" onClick={(event) => handleAddToOrder(item, event)}>
                       {t("menu.addToOrder")}
                     </Button>
                     <Tag className="menu-accent-tag" color="default">
@@ -174,6 +466,36 @@ export default function MenuPage() {
           )}
         </Row>
       </Space>
+      <Modal
+        open={Boolean(zoomedImageUrl)}
+        onCancel={() => setZoomedItem(null)}
+        footer={null}
+        centered
+        width={720}
+        className={`menu-zoom-modal ${displayFont.variable} ${bodyFont.variable}`}
+      >
+        {zoomedItem && zoomedImageUrl ? (
+          <div className="menu-zoom-body">
+            <div className="menu-zoom-media">
+              <Image
+                src={zoomedImageUrl}
+                alt={t(zoomedItem.name)}
+                fill
+                sizes="(max-width: 768px) 92vw, 720px"
+              />
+            </div>
+            <div className="menu-zoom-meta">
+              <Text className="menu-zoom-name">{t(zoomedItem.name)}</Text>
+              {zoomedItem.description && (
+                <Text type="secondary" className="menu-zoom-description">
+                  {t(zoomedItem.description)}
+                </Text>
+              )}
+              <Text className="menu-zoom-price">{formatter.format(zoomedItem.price)}</Text>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }

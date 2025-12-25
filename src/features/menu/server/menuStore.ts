@@ -5,29 +5,29 @@ const items = new Map<string, MenuItem>();
 
 const seedItems: MenuItemInput[] = [
   {
-    name: "Cà phê sữa",
-    description: "Cà phê rang xay pha cùng sữa đặc.",
+    name: "menu.seedItems.cafeSua.name",
+    description: "menu.seedItems.cafeSua.description",
     category: "coffee",
     price: 42000,
     available: true,
   },
   {
-    name: "Trà đào cam sả",
-    description: "Trà đen ủ lạnh, đào tươi và sả.",
+    name: "menu.seedItems.traDaoCamSa.name",
+    description: "menu.seedItems.traDaoCamSa.description",
     category: "tea",
     price: 48000,
     available: true,
   },
   {
-    name: "Bánh tiramisu",
-    description: "Bánh mềm vị cacao và mascarpone.",
+    name: "menu.seedItems.banhTiramisu.name",
+    description: "menu.seedItems.banhTiramisu.description",
     category: "dessert",
     price: 55000,
     available: false,
   },
   {
-    name: "Bánh mì chảo",
-    description: "Trứng ốp la, xúc xích, pate.",
+    name: "menu.seedItems.banhMiChao.name",
+    description: "menu.seedItems.banhMiChao.description",
     category: "food",
     price: 65000,
     available: true,
@@ -52,17 +52,19 @@ function seedIfEmpty() {
 
 function normalizeInput(input: MenuItemInput): MenuItemInput {
   if (!input.name?.trim()) {
-    throw new Error("Tên món ăn là bắt buộc");
+    throw new Error("menu.errors.nameRequired");
   }
   if (!Number.isFinite(input.price) || input.price <= 0) {
-    throw new Error("Giá món ăn không hợp lệ");
+    throw new Error("menu.errors.priceInvalid");
   }
+  const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
   return {
     name: input.name.trim(),
     description: input.description?.trim() ?? "",
     category: input.category || "other",
     price: Number(input.price),
     available: input.available ?? true,
+    imageUrl,
   };
 }
 
@@ -87,8 +89,14 @@ export function createMenuItem(payload: MenuItemInput) {
 export function updateMenuItem(id: string, updates: MenuItemUpdate) {
   const current = items.get(id);
   if (!current) {
-    throw new Error("Không tìm thấy món ăn");
+    throw new Error("menu.errors.itemNotFound");
   }
+  const nextImageUrl =
+    updates.imageUrl !== undefined
+      ? typeof updates.imageUrl === "string"
+        ? updates.imageUrl.trim()
+        : ""
+      : current.imageUrl ?? "";
   const next: MenuItem = {
     ...current,
     ...updates,
@@ -97,13 +105,14 @@ export function updateMenuItem(id: string, updates: MenuItemUpdate) {
     category: updates.category ?? current.category,
     price: updates.price ?? current.price,
     available: updates.available ?? current.available,
+    imageUrl: nextImageUrl,
     updatedAt: new Date().toISOString(),
   };
   if (!next.name) {
-    throw new Error("Tên món ăn là bắt buộc");
+    throw new Error("menu.errors.nameRequired");
   }
   if (!Number.isFinite(next.price) || next.price <= 0) {
-    throw new Error("Giá món ăn không hợp lệ");
+    throw new Error("menu.errors.priceInvalid");
   }
   items.set(id, next);
   return next;
@@ -111,7 +120,7 @@ export function updateMenuItem(id: string, updates: MenuItemUpdate) {
 
 export function deleteMenuItem(id: string) {
   if (!items.has(id)) {
-    throw new Error("Không tìm thấy món ăn");
+    throw new Error("menu.errors.itemNotFound");
   }
   items.delete(id);
 }

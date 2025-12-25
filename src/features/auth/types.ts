@@ -24,6 +24,6 @@ export type AuthTokens = {
 };
 
 export type AuthResponse = {
-  user: AuthPublicUser;
+  user: AuthPublicUser | null;
   tokens: AuthTokens;
 };

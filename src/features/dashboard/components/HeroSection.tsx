@@ -12,7 +12,10 @@ export function HeroSection() {
   const { t } = useLocale();
 
   return (
-    <Card style={{ background: "linear-gradient(135deg,#101939,#020817)" }} bodyStyle={{ padding: 32 }}>
+    <Card
+      style={{ background: "linear-gradient(135deg,#101939,#020817)" }}
+      styles={{ body: { padding: 32 } }}
+    >
       <Row gutter={[32, 32]}>
         <Col xs={24} lg={12}>
           <Space orientation="vertical" size="middle">

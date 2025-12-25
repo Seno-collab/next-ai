@@ -1,9 +1,8 @@
 "use client";
 
-import { Card, Col, Row, Tooltip, Typography } from "antd";
-import { Button } from "antd";
 import { quickActions } from "@/features/dashboard/constants";
 import { useLocale } from "@/hooks/useLocale";
+import { Button, Card, Col, Row, Tooltip, Typography } from "antd";
 
 const { Text } = Typography;
 
@@ -19,7 +18,7 @@ export function QuickActionsCard({ className }: QuickActionsCardProps) {
       className={className}
       title={t("dashboard.quickActionsTitle")}
       variant="borderless"
-      bodyStyle={{ paddingBottom: 8 }}
+      styles={{ body: { paddingBottom: 8 } }}
     >
       <Row gutter={[12, 12]}>
         {quickActions.map((action) => (

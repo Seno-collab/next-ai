@@ -26,7 +26,7 @@ export default function ThreeScene() {
     camera.position.set(0, 0, 5);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(globalThis.window.devicePixelRatio);
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
     mountEl.appendChild(renderer.domElement);
 
@@ -60,7 +60,7 @@ export default function ThreeScene() {
       camera.updateProjectionMatrix();
     };
 
-    window.addEventListener("resize", handleResize);
+    globalThis.window.addEventListener("resize", handleResize);
 
     let animationFrameId: number;
     const animate = () => {
@@ -74,7 +74,7 @@ export default function ThreeScene() {
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener("resize", handleResize);
+      globalThis.window.removeEventListener("resize", handleResize);
       geometry.dispose();
       material.dispose();
       renderer.dispose();
