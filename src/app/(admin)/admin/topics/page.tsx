@@ -1,6 +1,6 @@
 "use client";
 
-import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -17,7 +17,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { OptionGroup, OptionItem, Topic } from "@/features/menu/types";
 import { useTopics } from "@/features/menu/hooks/useTopics";
 import { useOptionGroups } from "@/features/menu/hooks/useOptionGroups";
@@ -78,9 +78,10 @@ export default function TopicsPage() {
     deleteItem,
   } = useOptionItems();
 
-  const [restaurantId, setRestaurantId] = useState<number | null>(null);
   const [menuItemId, setMenuItemId] = useState<number | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
+  const [topicSearch, setTopicSearch] = useState("");
+  const [hydrated, setHydrated] = useState(false);
 
   const [topicForm] = Form.useForm<TopicFormValues>();
   const [groupForm] = Form.useForm<OptionGroupFormValues>();
@@ -93,6 +94,17 @@ export default function TopicsPage() {
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [editingGroup, setEditingGroup] = useState<OptionGroup | null>(null);
   const [editingItem, setEditingItem] = useState<OptionItem | null>(null);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const normalizedTopicSearch = topicSearch.trim();
+
+  const handleTopicSearch = (value: string) => {
+    const normalized = value.trim();
+    void fetchTopics({ name: normalized });
+  };
 
   const openTopicCreate = () => {
     setEditingTopic(null);
@@ -123,9 +135,7 @@ export default function TopicsPage() {
       await createTopic(payload);
     }
     setTopicModalOpen(false);
-    if (restaurantId) {
-      await fetchTopics(restaurantId);
-    }
+    await fetchTopics({ name: normalizedTopicSearch });
   };
 
   const openGroupCreate = () => {
@@ -254,9 +264,7 @@ export default function TopicsPage() {
               cancelText={t("menu.form.cancel")}
               onConfirm={async () => {
                 await deleteTopic(record.id);
-                if (restaurantId) {
-                  await fetchTopics(restaurantId);
-                }
+                await fetchTopics({ name: normalizedTopicSearch });
               }}
             >
             <Button danger icon={<DeleteOutlined />}>
@@ -410,27 +418,37 @@ export default function TopicsPage() {
             </Button>
           </Space>
           <div className="menu-admin-toolbar">
-            <Row gutter={[16, 16]} align="middle">
-              <Col xs={24} sm={12} md={8}>
+            <Row gutter={[16, 16]} align="bottom">
+              <Col xs={24} md={14} lg={12}>
                 <div className="menu-admin-field">
-                  <Text type="secondary">{t("topics.restaurantId")}</Text>
-                  <InputNumber
-                    min={1}
-                    value={restaurantId ?? undefined}
-                    onChange={(value) => setRestaurantId(value ?? null)}
-                    placeholder="123"
-                    style={{ width: "100%" }}
+                  <Text type="secondary">{t("topics.search.label")}</Text>
+                  <Input
+                    allowClear
+                    prefix={<SearchOutlined />}
+                    placeholder={t("topics.search.placeholder")}
+                    value={topicSearch}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setTopicSearch(nextValue);
+                      if (!nextValue.trim()) {
+                        handleTopicSearch("");
+                      }
+                    }}
+                    onPressEnter={(event) => {
+                      handleTopicSearch(event.currentTarget.value);
+                    }}
                   />
                 </div>
               </Col>
-              <Col xs={24} sm={12} md={6}>
+              <Col xs={24} md={6} lg={4}>
                 <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => restaurantId && fetchTopics(restaurantId)}
-                  loading={topicAction === "fetch"}
-                  disabled={!restaurantId}
+                  type="primary"
+                  icon={<SearchOutlined />}
+                  className="topic-search-button"
+                  onClick={() => handleTopicSearch(topicSearch)}
+                  block
                 >
-                  {t("topics.load")}
+                  {t("topics.search.action")}
                 </Button>
               </Col>
             </Row>
@@ -553,144 +571,148 @@ export default function TopicsPage() {
         </Space>
       </Card>
 
-      <Modal
-        open={topicModalOpen}
-        title={editingTopic ? t("menu.actions.edit") : t("menu.actions.add")}
-        onCancel={() => setTopicModalOpen(false)}
-        footer={null}
-        forceRender
-      >
-        <Form form={topicForm} layout="vertical" onFinish={handleTopicSubmit}>
-          <Form.Item label={t("topics.form.name")} name="name" rules={[{ required: true, message: t("topics.form.name") }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label={t("topics.form.slug")} name="slug">
-            <Input />
-          </Form.Item>
-          <Form.Item label={t("topics.form.parent")} name="parent_id">
-            <InputNumber min={0} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item label={t("topics.form.sort")} name="sort_order">
-            <InputNumber min={0} style={{ width: "100%" }} />
-          </Form.Item>
-          <Space style={{ width: "100%", justifyContent: "flex-end" }}>
-            <Button onClick={() => setTopicModalOpen(false)}>{t("menu.form.cancel")}</Button>
-            <Button type="primary" htmlType="submit" loading={topicAction === "create" || topicAction === "update"}>
-              {editingTopic ? t("menu.actions.save") : t("menu.actions.create")}
-            </Button>
-          </Space>
-        </Form>
-      </Modal>
+      {hydrated ? (
+        <>
+          <Modal
+            open={topicModalOpen}
+            title={editingTopic ? t("menu.actions.edit") : t("menu.actions.add")}
+            onCancel={() => setTopicModalOpen(false)}
+            footer={null}
+            forceRender
+          >
+            <Form form={topicForm} layout="vertical" onFinish={handleTopicSubmit}>
+              <Form.Item label={t("topics.form.name")} name="name" rules={[{ required: true, message: t("topics.form.name") }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label={t("topics.form.slug")} name="slug">
+                <Input />
+              </Form.Item>
+              <Form.Item label={t("topics.form.parent")} name="parent_id">
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+              <Form.Item label={t("topics.form.sort")} name="sort_order">
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+              <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+                <Button onClick={() => setTopicModalOpen(false)}>{t("menu.form.cancel")}</Button>
+                <Button type="primary" htmlType="submit" loading={topicAction === "create" || topicAction === "update"}>
+                  {editingTopic ? t("menu.actions.save") : t("menu.actions.create")}
+                </Button>
+              </Space>
+            </Form>
+          </Modal>
 
-      <Modal
-        open={groupModalOpen}
-        title={editingGroup ? t("menu.actions.edit") : t("menu.actions.add")}
-        onCancel={() => setGroupModalOpen(false)}
-        footer={null}
-        forceRender
-      >
-        <Form form={groupForm} layout="vertical" onFinish={handleGroupSubmit}>
-          <Form.Item
-            label={t("variants.groups.form.name")}
-            name="name"
-            rules={[{ required: true, message: t("variants.groups.form.name") }]}
+          <Modal
+            open={groupModalOpen}
+            title={editingGroup ? t("menu.actions.edit") : t("menu.actions.add")}
+            onCancel={() => setGroupModalOpen(false)}
+            footer={null}
+            forceRender
           >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label={t("variants.groups.form.menuItemId")}
-            name="menu_item_id"
-            rules={[{ required: true, message: t("variants.groups.form.menuItemId") }]}
-          >
-            <InputNumber min={1} style={{ width: "100%" }} disabled={Boolean(editingGroup)} />
-          </Form.Item>
-          <Row gutter={12}>
-            <Col xs={12}>
-              <Form.Item label={t("variants.groups.form.minSelect")} name="min_select">
+            <Form form={groupForm} layout="vertical" onFinish={handleGroupSubmit}>
+              <Form.Item
+                label={t("variants.groups.form.name")}
+                name="name"
+                rules={[{ required: true, message: t("variants.groups.form.name") }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label={t("variants.groups.form.menuItemId")}
+                name="menu_item_id"
+                rules={[{ required: true, message: t("variants.groups.form.menuItemId") }]}
+              >
+                <InputNumber min={1} style={{ width: "100%" }} disabled={Boolean(editingGroup)} />
+              </Form.Item>
+              <Row gutter={12}>
+                <Col xs={12}>
+                  <Form.Item label={t("variants.groups.form.minSelect")} name="min_select">
+                    <InputNumber min={0} style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={12}>
+                  <Form.Item label={t("variants.groups.form.maxSelect")} name="max_select">
+                    <InputNumber min={0} style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item label={t("variants.groups.form.required")} name="is_required" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item label={t("variants.groups.form.sortOrder")} name="sort_order">
                 <InputNumber min={0} style={{ width: "100%" }} />
               </Form.Item>
-            </Col>
-            <Col xs={12}>
-              <Form.Item label={t("variants.groups.form.maxSelect")} name="max_select">
-                <InputNumber min={0} style={{ width: "100%" }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label={t("variants.groups.form.required")} name="is_required" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item label={t("variants.groups.form.sortOrder")} name="sort_order">
-            <InputNumber min={0} style={{ width: "100%" }} />
-          </Form.Item>
-          <Space style={{ width: "100%", justifyContent: "flex-end" }}>
-            <Button onClick={() => setGroupModalOpen(false)}>{t("menu.form.cancel")}</Button>
-            <Button type="primary" htmlType="submit" loading={groupAction === "create" || groupAction === "update"}>
-              {editingGroup ? t("menu.actions.save") : t("menu.actions.create")}
-            </Button>
-          </Space>
-        </Form>
-      </Modal>
+              <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+                <Button onClick={() => setGroupModalOpen(false)}>{t("menu.form.cancel")}</Button>
+                <Button type="primary" htmlType="submit" loading={groupAction === "create" || groupAction === "update"}>
+                  {editingGroup ? t("menu.actions.save") : t("menu.actions.create")}
+                </Button>
+              </Space>
+            </Form>
+          </Modal>
 
-      <Modal
-        open={itemModalOpen}
-        title={editingItem ? t("menu.actions.edit") : t("menu.actions.add")}
-        onCancel={() => setItemModalOpen(false)}
-        footer={null}
-        forceRender
-      >
-        <Form form={itemForm} layout="vertical" onFinish={handleItemSubmit}>
-          <Form.Item
-            label={t("variants.items.form.name")}
-            name="name"
-            rules={[{ required: true, message: t("variants.items.form.name") }]}
+          <Modal
+            open={itemModalOpen}
+            title={editingItem ? t("menu.actions.edit") : t("menu.actions.add")}
+            onCancel={() => setItemModalOpen(false)}
+            footer={null}
+            forceRender
           >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label={t("variants.items.form.groupId")}
-            name="option_group_id"
-            rules={[{ required: true, message: t("variants.items.form.groupId") }]}
-          >
-            <InputNumber min={1} style={{ width: "100%" }} disabled={Boolean(editingItem)} />
-          </Form.Item>
-          <Row gutter={12}>
-            <Col xs={12}>
-              <Form.Item label={t("variants.items.form.priceDelta")} name="price_delta">
-                <InputNumber style={{ width: "100%" }} />
+            <Form form={itemForm} layout="vertical" onFinish={handleItemSubmit}>
+              <Form.Item
+                label={t("variants.items.form.name")}
+                name="name"
+                rules={[{ required: true, message: t("variants.items.form.name") }]}
+              >
+                <Input />
               </Form.Item>
-            </Col>
-            <Col xs={12}>
-              <Form.Item label={t("variants.items.form.linkedMenuItem")} name="linked_menu_item">
+              <Form.Item
+                label={t("variants.items.form.groupId")}
+                name="option_group_id"
+                rules={[{ required: true, message: t("variants.items.form.groupId") }]}
+              >
+                <InputNumber min={1} style={{ width: "100%" }} disabled={Boolean(editingItem)} />
+              </Form.Item>
+              <Row gutter={12}>
+                <Col xs={12}>
+                  <Form.Item label={t("variants.items.form.priceDelta")} name="price_delta">
+                    <InputNumber style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={12}>
+                  <Form.Item label={t("variants.items.form.linkedMenuItem")} name="linked_menu_item">
+                    <InputNumber min={0} style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={12}>
+                <Col xs={12}>
+                  <Form.Item label={t("variants.items.form.qtyMin")} name="quantity_min">
+                    <InputNumber min={0} style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={12}>
+                  <Form.Item label={t("variants.items.form.qtyMax")} name="quantity_max">
+                    <InputNumber min={0} style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item label={t("variants.items.form.sortOrder")} name="sort_order">
                 <InputNumber min={0} style={{ width: "100%" }} />
               </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col xs={12}>
-              <Form.Item label={t("variants.items.form.qtyMin")} name="quantity_min">
-                <InputNumber min={0} style={{ width: "100%" }} />
+              <Form.Item label={t("variants.items.form.active")} name="is_active" valuePropName="checked">
+                <Switch disabled={Boolean(editingItem)} />
               </Form.Item>
-            </Col>
-            <Col xs={12}>
-              <Form.Item label={t("variants.items.form.qtyMax")} name="quantity_max">
-                <InputNumber min={0} style={{ width: "100%" }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label={t("variants.items.form.sortOrder")} name="sort_order">
-            <InputNumber min={0} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item label={t("variants.items.form.active")} name="is_active" valuePropName="checked">
-            <Switch disabled={Boolean(editingItem)} />
-          </Form.Item>
-          <Space style={{ width: "100%", justifyContent: "flex-end" }}>
-            <Button onClick={() => setItemModalOpen(false)}>{t("menu.form.cancel")}</Button>
-            <Button type="primary" htmlType="submit" loading={itemAction === "create" || itemAction === "update"}>
-              {editingItem ? t("menu.actions.save") : t("menu.actions.create")}
-            </Button>
-          </Space>
-        </Form>
-      </Modal>
+              <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+                <Button onClick={() => setItemModalOpen(false)}>{t("menu.form.cancel")}</Button>
+                <Button type="primary" htmlType="submit" loading={itemAction === "create" || itemAction === "update"}>
+                  {editingItem ? t("menu.actions.save") : t("menu.actions.create")}
+                </Button>
+              </Space>
+            </Form>
+          </Modal>
+        </>
+      ) : null}
     </Space>
   );
 }

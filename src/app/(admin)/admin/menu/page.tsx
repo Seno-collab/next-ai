@@ -24,14 +24,27 @@ import { useEffect, useMemo, useState } from "react";
 import { MenuItemForm, type MenuItemFormValues } from "@/features/menu/components/MenuItemForm";
 import { menuCategories } from "@/features/menu/constants";
 import { useMenuItems } from "@/features/menu/hooks/useMenuItems";
+import { useTopicCombobox } from "@/features/menu/hooks/useTopicCombobox";
 import type { MenuItem } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
 
 const { Title, Text, Paragraph } = Typography;
 
 export default function MenuManagementPage() {
-  const { items, loading, error, action, pendingId, createItem, updateItem, deleteItem, toggleAvailability } =
-    useMenuItems();
+  const {
+    items,
+    loading,
+    error,
+    action,
+    pendingId,
+    createItem,
+    updateItem,
+    deleteItem,
+    toggleAvailability,
+    searchItems,
+    searchMeta,
+  } = useMenuItems({ autoFetch: false });
+  const { topics, loading: topicsLoading } = useTopicCombobox();
   const { t, locale } = useLocale();
   const [form] = Form.useForm<MenuItemFormValues>();
   const [open, setOpen] = useState(false);
@@ -39,13 +52,15 @@ export default function MenuManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState<"all" | "available" | "unavailable">("all");
+  const [page, setPage] = useState(1);
   const [hydrated, setHydrated] = useState(false);
+  const pageSize = 6;
 
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  const totalItems = items.length;
+  const totalItems = searchMeta?.totalItems ?? items.length;
   const availableItems = items.filter((item) => item.available).length;
   const categoryCount = new Set(items.map((item) => item.category)).size;
 
@@ -81,32 +96,38 @@ export default function MenuManagementPage() {
     [t],
   );
 
-  const filteredItems = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    return items.filter((item) => {
-      const name = t(item.name).toLowerCase();
-      const description = item.description ? t(item.description).toLowerCase() : "";
-      const matchesSearch =
-        normalizedSearch.length === 0 || name.includes(normalizedSearch) || description.includes(normalizedSearch);
-      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-      const matchesAvailability =
-        availabilityFilter === "all"
-          ? true
-          : availabilityFilter === "available"
-            ? item.available
-            : !item.available;
-      return matchesSearch && matchesCategory && matchesAvailability;
-    });
-  }, [availabilityFilter, categoryFilter, items, searchTerm, t]);
+  const normalizedFilter = searchTerm.trim();
+  const activeCategory = categoryFilter === "all" ? undefined : categoryFilter;
+  const activeStatus =
+    availabilityFilter === "all" ? undefined : availabilityFilter === "available";
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeCategory, activeStatus, normalizedFilter]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      void searchItems({
+        filter: normalizedFilter || undefined,
+        category: activeCategory,
+        isActive: activeStatus,
+        limit: pageSize,
+        page: Math.max(0, page - 1),
+      });
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [activeCategory, activeStatus, normalizedFilter, page, pageSize, searchItems]);
 
   const openCreate = () => {
     setEditingItem(null);
     form.resetFields();
     form.setFieldsValue({
       name: "",
+      sku: "",
       description: "",
       category: menuCategories[0]?.value ?? "other",
       price: 0,
+      topicId: null,
       available: true,
       imageUrl: "",
     });
@@ -117,9 +138,11 @@ export default function MenuManagementPage() {
     setEditingItem(item);
     form.setFieldsValue({
       name: t(item.name),
+      sku: item.sku ?? "",
       description: item.description ? t(item.description) : "",
       category: item.category,
       price: item.price,
+      topicId: item.topicId ?? null,
       available: item.available,
       imageUrl: item.imageUrl ?? "",
     });
@@ -127,8 +150,16 @@ export default function MenuManagementPage() {
   };
 
   const handleSubmit = async (values: MenuItemFormValues) => {
+    const sku = typeof values.sku === "string" ? values.sku.trim() : "";
+    const topicId =
+      typeof values.topicId === "number" && Number.isFinite(values.topicId) ? values.topicId : null;
+    const normalizedValues = {
+      ...values,
+      sku,
+      topicId,
+    };
     if (editingItem) {
-      const nextValues = { ...values };
+      const nextValues = { ...normalizedValues };
       if (t(editingItem.name) === values.name) {
         nextValues.name = editingItem.name;
       }
@@ -140,7 +171,7 @@ export default function MenuManagementPage() {
       }
       await updateItem(editingItem.id, nextValues);
     } else {
-      await createItem(values);
+      await createItem(normalizedValues);
     }
     setOpen(false);
   };
@@ -277,7 +308,7 @@ export default function MenuManagementPage() {
             </Row>
           </div>
           <Text type="secondary" className="menu-admin-results">
-            {filteredItems.length} {t("menu.itemsLabel")}
+            {totalItems} {t("menu.itemsLabel")}
           </Text>
         </Space>
       </Card>
@@ -313,28 +344,39 @@ export default function MenuManagementPage() {
           rowKey="id"
           loading={loading || action === "fetch"}
           columns={columns}
-          dataSource={filteredItems}
-          pagination={{ pageSize: 6, size: "small", showSizeChanger: false }}
+          dataSource={items}
+          pagination={{
+            current: page,
+            pageSize,
+            total: totalItems,
+            size: "small",
+            showSizeChanger: false,
+            onChange: (nextPage) => setPage(nextPage),
+          }}
           size="small"
           className="glass-table"
         />
       </Card>
-      <Modal
-        open={open}
-        title={editingItem ? t("menu.actions.edit") : t("menu.actions.add")}
-        onCancel={() => setOpen(false)}
-        footer={null}
-        forceRender
-        getContainer={false}
-      >
-        <MenuItemForm
-          form={form}
+      {hydrated ? (
+        <Modal
+          open={open}
+          title={editingItem ? t("menu.actions.edit") : t("menu.actions.add")}
           onCancel={() => setOpen(false)}
-          onSubmit={handleSubmit}
-          submitLabel={editingItem ? t("menu.actions.save") : t("menu.actions.create")}
-          loading={action === "create" || action === "update"}
-        />
-      </Modal>
+          footer={null}
+          forceRender
+          getContainer={false}
+        >
+          <MenuItemForm
+            form={form}
+            onCancel={() => setOpen(false)}
+            onSubmit={handleSubmit}
+            submitLabel={editingItem ? t("menu.actions.save") : t("menu.actions.create")}
+            loading={action === "create" || action === "update"}
+            topics={topics}
+            topicsLoading={topicsLoading}
+          />
+        </Modal>
+      ) : null}
     </Space>
   );
 }

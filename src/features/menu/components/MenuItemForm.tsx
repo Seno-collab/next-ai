@@ -6,14 +6,17 @@ import { Button, Form, Input, InputNumber, Select, Space, Switch } from "antd";
 import type { FormInstance } from "antd";
 import { useRef, useState } from "react";
 import { menuCategories } from "@/features/menu/constants";
+import type { Topic } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
 import { fetchJson } from "@/lib/api/client";
 
 export type MenuItemFormValues = {
   name: string;
+  sku?: string;
   description?: string;
   category: string;
   price: number;
+  topicId?: number | null;
   available: boolean;
   imageUrl?: string;
 };
@@ -24,15 +27,29 @@ type MenuItemFormProps = {
   onCancel: () => void;
   submitLabel: string;
   loading?: boolean;
+  topics?: Topic[];
+  topicsLoading?: boolean;
 };
 
-export function MenuItemForm({ form, onSubmit, onCancel, submitLabel, loading = false }: MenuItemFormProps) {
+export function MenuItemForm({
+  form,
+  onSubmit,
+  onCancel,
+  submitLabel,
+  loading = false,
+  topics = [],
+  topicsLoading = false,
+}: MenuItemFormProps) {
   const { t } = useLocale();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const imageUrl = Form.useWatch("imageUrl", form);
   const trimmedImageUrl = typeof imageUrl === "string" ? imageUrl.trim() : "";
   const isSubmitting = loading || uploading;
+  const topicOptions = topics.map((topic) => ({
+    value: topic.id,
+    label: topic.name,
+  }));
 
   const handlePickFile = () => {
     fileInputRef.current?.click();
@@ -69,6 +86,9 @@ export function MenuItemForm({ form, onSubmit, onCancel, submitLabel, loading = 
       >
         <Input placeholder={t("menu.form.namePlaceholder")} />
       </Form.Item>
+      <Form.Item label={t("menu.form.sku")} name="sku">
+        <Input placeholder={t("menu.form.skuPlaceholder")} />
+      </Form.Item>
       <Form.Item label={t("menu.form.description")} name="description">
         <Input.TextArea rows={3} placeholder={t("menu.form.descriptionPlaceholder")} />
       </Form.Item>
@@ -82,6 +102,17 @@ export function MenuItemForm({ form, onSubmit, onCancel, submitLabel, loading = 
             value: category.value,
             label: t(category.labelKey),
           }))}
+        />
+      </Form.Item>
+      <Form.Item label={t("menu.form.topic")} name="topicId">
+        <Select
+          allowClear
+          showSearch
+          placeholder={t("menu.form.topicPlaceholder")}
+          options={topicOptions}
+          loading={topicsLoading}
+          optionFilterProp="label"
+          notFoundContent={topicsLoading ? t("menu.form.topicLoading") : t("menu.form.topicEmpty")}
         />
       </Form.Item>
       <Form.Item

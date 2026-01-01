@@ -180,7 +180,7 @@ export const OrderBurstCanvas = forwardRef<OrderBurstHandle>(function OrderBurst
       burstsRef.current = [];
       geometry.dispose();
       renderer.dispose();
-      mountEl.removeChild(renderer.domElement);
+      renderer.domElement.remove();
     };
   }, []);
 

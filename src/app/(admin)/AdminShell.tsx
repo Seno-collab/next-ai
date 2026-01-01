@@ -19,6 +19,7 @@ import {
 import { Button, Layout, Menu, Segmented, Space, Switch, Typography } from "antd";
 import { useLocale } from "@/hooks/useLocale";
 import { useTheme } from "@/hooks/useTheme";
+import { RestaurantSelectHeader } from "@/features/admin/components/RestaurantSelectHeader";
 
 const { Sider, Header, Content } = Layout;
 const { Text, Title } = Typography;
@@ -112,7 +113,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             />
             <Text type="secondary">{t("nav.adminSubtitle")}</Text>
           </Space>
-          <Space size="middle">
+          <Space size="middle" className="admin-header-actions">
+            <RestaurantSelectHeader />
             <Space size="small">
               <BulbOutlined />
               <Switch

@@ -1,20 +1,20 @@
 "use client";
 
-import { useServerInsertedHTML } from "next/navigation";
 import {
   StyleProvider,
   createCache,
   extractStyle,
 } from "@ant-design/cssinjs";
+import { useServerInsertedHTML } from "next/navigation";
 import { useState } from "react";
 
 type StyleCache = ReturnType<typeof createCache>;
 
 export default function AntdRegistry({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   const [cache] = useState<StyleCache>(() => createCache());
 
   useServerInsertedHTML(() => (

@@ -1,14 +1,28 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { fetchApiJson, notifyError, notifySuccess } from "@/lib/api/client";
 import type { Topic, TopicInput, TopicUpdate } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
+import { fetchApiJson, notifyError, notifySuccess } from "@/lib/api/client";
+import { useCallback, useEffect, useState } from "react";
 
-type TopicsResponse = { items: Topic[] };
+type TopicsResponse = {
+  items?: Topic[];
+  data?: {
+    items?: Topic[];
+    page?: number;
+    limit?: number;
+    total_items?: number;
+    total_pages?: number;
+  } | null;
+};
 type TopicActionResponse = {
   message?: string;
   response_code?: string | number;
+};
+type TopicQueryParams = {
+  name?: string;
+  page?: number;
+  limit?: number;
 };
 
 type TopicAction = "fetch" | "create" | "update" | "delete";
@@ -24,6 +38,52 @@ function parseResponseCode(value: unknown) {
   return null;
 }
 
+function buildTopicsQuery(params?: TopicQueryParams) {
+  const searchParams = new URLSearchParams();
+  const name = params?.name?.trim() ?? "";
+  const page =
+    typeof params?.page === "number" && params.page > 0 ? params.page : 1;
+  const limit =
+    typeof params?.limit === "number" && params.limit > 0 ? params.limit : 20;
+  if (name) {
+    searchParams.set("name", name);
+  }
+  searchParams.set("page", String(page));
+  searchParams.set("limit", String(limit));
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
+
+function resolveTopicErrorMessage(err: unknown, fallback: string) {
+  if (!(err instanceof Error)) {
+    return fallback;
+  }
+  const message = err.message?.trim();
+  if (!message) {
+    return fallback;
+  }
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("failed to fetch") ||
+    normalized.includes("network error") ||
+    normalized.includes("networkerror") ||
+    normalized.includes("load failed")
+  ) {
+    return fallback;
+  }
+  return message;
+}
+
+function extractTopics(payload: TopicsResponse) {
+  if (Array.isArray(payload.items)) {
+    return payload.items;
+  }
+  if (payload.data && Array.isArray(payload.data.items)) {
+    return payload.data.items;
+  }
+  return [];
+}
+
 export function useTopics() {
   const { t } = useLocale();
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -33,61 +93,72 @@ export function useTopics() {
 
   const handleActionResponse = useCallback(
     (response: TopicActionResponse, fallbackMessage: string) => {
-      const responseCode = parseResponseCode(response.response_code);
+      const rawResponseCode = response.response_code;
+      const responseCode = parseResponseCode(rawResponseCode);
       if (responseCode !== null && responseCode !== 200) {
-        const message = typeof response.message === "string" ? response.message : fallbackMessage;
+        const message =
+          typeof response.message === "string"
+            ? response.message
+            : fallbackMessage;
         notifyError(message);
         throw new Error(message);
       }
-      if (typeof response.message === "string") {
+      if (rawResponseCode === "200" && typeof response.message === "string") {
         notifySuccess(response.message);
       }
     },
-    [],
+    []
   );
 
-  const fetchTopics = useCallback(
-    async (restaurantId: number) => {
-      setAction("fetch");
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetchApiJson<TopicsResponse>(
-          `/api/menu/restaurant/topics?restaurant_id=${restaurantId}`,
-          { cache: "no-store" },
-        );
-        setTopics(response.items ?? []);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : t("topics.errors.loadFailed");
-        setError(message);
-      } finally {
-        setLoading(false);
-        setAction(null);
-      }
-    },
-    [handleActionResponse, t],
-  );
+  const fetchTopics = useCallback(async (params?: TopicQueryParams) => {
+    setAction("fetch");
+    setLoading(true);
+    setError(null);
+    try {
+      const query = buildTopicsQuery(params);
+      const response = await fetchApiJson<TopicsResponse>(
+        `/api/menu/restaurant/topics${query}`,
+        { cache: "no-store" }
+      );
+      setTopics(extractTopics(response));
+    } catch (err) {
+      const message = resolveTopicErrorMessage(
+        err,
+        t("topics.errors.loadFailed")
+      );
+      setError(message);
+    } finally {
+      setLoading(false);
+      setAction(null);
+    }
+  }, [t]);
 
   const createTopic = useCallback(
     async (payload: TopicInput) => {
       setAction("create");
       setError(null);
       try {
-        const response = await fetchApiJson<TopicActionResponse>("/api/menu/topic", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetchApiJson<TopicActionResponse>(
+          "/menu/topics",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
         handleActionResponse(response, t("topics.errors.createFailed"));
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("topics.errors.createFailed");
+        const message = resolveTopicErrorMessage(
+          err,
+          t("topics.errors.createFailed")
+        );
         setError(message);
         throw err;
       } finally {
         setAction(null);
       }
     },
-    [handleActionResponse, t],
+    [handleActionResponse, t]
   );
 
   const updateTopic = useCallback(
@@ -95,21 +166,27 @@ export function useTopics() {
       setAction("update");
       setError(null);
       try {
-        const response = await fetchApiJson<TopicActionResponse>(`/api/menu/topic/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetchApiJson<TopicActionResponse>(
+          `/menu/topics/${id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
         handleActionResponse(response, t("topics.errors.updateFailed"));
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("topics.errors.updateFailed");
+        const message = resolveTopicErrorMessage(
+          err,
+          t("topics.errors.updateFailed")
+        );
         setError(message);
         throw err;
       } finally {
         setAction(null);
       }
     },
-    [t],
+    [handleActionResponse, t]
   );
 
   const deleteTopic = useCallback(
@@ -117,18 +194,28 @@ export function useTopics() {
       setAction("delete");
       setError(null);
       try {
-        const response = await fetchApiJson<TopicActionResponse>(`/api/menu/topic/${id}`, { method: "DELETE" });
+        const response = await fetchApiJson<TopicActionResponse>(
+          `/menu/topics/${id}`,
+          { method: "DELETE" }
+        );
         handleActionResponse(response, t("topics.errors.deleteFailed"));
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("topics.errors.deleteFailed");
+        const message = resolveTopicErrorMessage(
+          err,
+          t("topics.errors.deleteFailed")
+        );
         setError(message);
         throw err;
       } finally {
         setAction(null);
       }
     },
-    [handleActionResponse, t],
+    [handleActionResponse, t]
   );
+
+  useEffect(() => {
+    fetchTopics();
+  }, [fetchTopics]);
 
   return {
     topics,

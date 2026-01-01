@@ -12,7 +12,7 @@ const CARD_WIDTH = 2.2;
 const CARD_HEIGHT = 1.4;
 const CARD_DEPTH = 0.12;
 
-export function MenuItemPreview3D({ imageUrl, accent = "#f97316" }: MenuItemPreview3DProps) {
+export function MenuItemPreview3D({ imageUrl, accent = "#f97316" }: Readonly<MenuItemPreview3DProps>) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -201,9 +201,9 @@ export function MenuItemPreview3D({ imageUrl, accent = "#f97316" }: MenuItemPrev
       glowMaterial.dispose();
       textureRef.current?.dispose();
       renderer.dispose();
-      mountEl.removeChild(renderer.domElement);
+      renderer.domElement.remove();
     };
-  }, []);
+  }, [accent]);
 
   useEffect(() => {
     const material = frontMaterialRef.current;

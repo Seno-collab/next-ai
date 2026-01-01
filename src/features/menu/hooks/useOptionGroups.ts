@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { fetchApiJson, notifyError, notifySuccess } from "@/lib/api/client";
-import type { OptionGroup, OptionGroupInput, OptionGroupUpdate } from "@/features/menu/types";
+import type {
+  OptionGroup,
+  OptionGroupInput,
+  OptionGroupUpdate,
+} from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
+import { fetchApiJson, notifyError, notifySuccess } from "@/lib/api/client";
+import { useCallback, useState } from "react";
 
 type OptionGroupsResponse = { groups: OptionGroup[] };
 type OptionGroupActionResponse = {
@@ -35,7 +39,10 @@ export function useOptionGroups() {
     (response: OptionGroupActionResponse, fallbackMessage: string) => {
       const responseCode = parseResponseCode(response.response_code);
       if (responseCode !== null && responseCode !== 200) {
-        const message = typeof response.message === "string" ? response.message : fallbackMessage;
+        const message =
+          typeof response.message === "string"
+            ? response.message
+            : fallbackMessage;
         notifyError(message);
         throw new Error(message);
       }
@@ -43,7 +50,7 @@ export function useOptionGroups() {
         notifySuccess(response.message);
       }
     },
-    [],
+    []
   );
 
   const fetchGroups = useCallback(
@@ -54,18 +61,21 @@ export function useOptionGroups() {
       try {
         const response = await fetchApiJson<OptionGroupsResponse>(
           `/api/menu/item/${menuItemId}/option-groups`,
-          { cache: "no-store" },
+          { cache: "no-store" }
         );
         setGroups(response.groups ?? []);
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("variants.errors.loadGroupsFailed");
+        const message =
+          err instanceof Error
+            ? err.message
+            : t("variants.errors.loadGroupsFailed");
         setError(message);
       } finally {
         setLoading(false);
         setAction(null);
       }
     },
-    [handleActionResponse, t],
+    [t]
   );
 
   const createGroup = useCallback(
@@ -73,21 +83,27 @@ export function useOptionGroups() {
       setAction("create");
       setError(null);
       try {
-        const response = await fetchApiJson<OptionGroupActionResponse>("/api/menu/option-group", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetchApiJson<OptionGroupActionResponse>(
+          "/api/menu/option-group",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
         handleActionResponse(response, t("variants.errors.createGroupFailed"));
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("variants.errors.createGroupFailed");
+        const message =
+          err instanceof Error
+            ? err.message
+            : t("variants.errors.createGroupFailed");
         setError(message);
         throw err;
       } finally {
         setAction(null);
       }
     },
-    [handleActionResponse, t],
+    [handleActionResponse, t]
   );
 
   const updateGroup = useCallback(
@@ -95,21 +111,27 @@ export function useOptionGroups() {
       setAction("update");
       setError(null);
       try {
-        const response = await fetchApiJson<OptionGroupActionResponse>(`/api/menu/option-group/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetchApiJson<OptionGroupActionResponse>(
+          `/api/menu/option-group/${id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
         handleActionResponse(response, t("variants.errors.updateGroupFailed"));
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("variants.errors.updateGroupFailed");
+        const message =
+          err instanceof Error
+            ? err.message
+            : t("variants.errors.updateGroupFailed");
         setError(message);
         throw err;
       } finally {
         setAction(null);
       }
     },
-    [t],
+    [handleActionResponse, t]
   );
 
   const deleteGroup = useCallback(
@@ -117,19 +139,25 @@ export function useOptionGroups() {
       setAction("delete");
       setError(null);
       try {
-        const response = await fetchApiJson<OptionGroupActionResponse>(`/api/menu/option-group/${id}`, {
-          method: "DELETE",
-        });
+        const response = await fetchApiJson<OptionGroupActionResponse>(
+          `/api/menu/option-group/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
         handleActionResponse(response, t("variants.errors.deleteGroupFailed"));
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("variants.errors.deleteGroupFailed");
+        const message =
+          err instanceof Error
+            ? err.message
+            : t("variants.errors.deleteGroupFailed");
         setError(message);
         throw err;
       } finally {
         setAction(null);
       }
     },
-    [handleActionResponse, t],
+    [handleActionResponse, t]
   );
 
   return {

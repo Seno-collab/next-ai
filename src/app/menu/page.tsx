@@ -137,13 +137,16 @@ export default function MenuPage() {
     setZoomedItem(item);
   };
 
-  const handleImageKeyDown =
-    (item: MenuItem) => (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleCardKeyDown =
+    (item: MenuItem) => (event: React.KeyboardEvent<HTMLElement>) => {
+      if (event.currentTarget !== event.target) {
+        return;
+      }
       if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") {
         return;
       }
       event.preventDefault();
-      handleImageZoom(item, event);
+      setSelectedItem(item);
     };
 
   const spotlightItem = selectedItem;
@@ -312,7 +315,11 @@ export default function MenuPage() {
                         isActive ? " is-active" : ""
                       }`}
                       style={{ "--accent": accent } as CSSProperties}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isActive}
                       onClick={() => setSelectedItem(item)}
+                      onKeyDown={handleCardKeyDown(item)}
                       onMouseMove={handleCardMouseMove}
                       onMouseLeave={handleCardMouseLeave}
                     >
@@ -320,23 +327,23 @@ export default function MenuPage() {
                         <Tag className="menu-special-badge">{t(badgeKey)}</Tag>
                         <Text className="menu-special-price">{formatter.format(item.price)}</Text>
                       </div>
-                      <div
-                        className={`menu-special-media${imageUrl ? " menu-zoomable" : ""}`}
-                        role={imageUrl ? "button" : undefined}
-                        tabIndex={imageUrl ? 0 : undefined}
-                        aria-label={imageUrl ? t(item.name) : undefined}
-                        onClick={(event) => handleImageZoom(item, event)}
-                        onKeyDown={handleImageKeyDown(item)}
-                      >
-                        {imageUrl && (
+                      {imageUrl ? (
+                        <button
+                          type="button"
+                          className="menu-special-media menu-zoomable"
+                          aria-label={t(item.name)}
+                          onClick={(event) => handleImageZoom(item, event)}
+                        >
                           <Image
                             src={imageUrl}
                             alt={t(item.name)}
                             fill
                             sizes="(max-width: 768px) 100vw, 320px"
                           />
-                        )}
-                      </div>
+                        </button>
+                      ) : (
+                        <div className="menu-special-media" />
+                      )}
                       <Text className="menu-special-name">{t(item.name)}</Text>
                       {item.description && (
                         <Text type="secondary" className="menu-special-description">
@@ -393,7 +400,7 @@ export default function MenuPage() {
               onChange={(value) => setSortKey(value as SortKey)}
               options={sortOptions}
               size="large"
-              dropdownClassName="menu-sort-dropdown"
+              classNames={{ popup: { root: "menu-sort-dropdown" } }}
             />
           </div>
         </div>
@@ -414,33 +421,38 @@ export default function MenuPage() {
           {filteredItems.map((item) => {
             const accent = accentMap[item.category] ?? "#60a5fa";
             const imageUrl = item.imageUrl?.trim();
+            const isActive = selectedItem?.id === item.id;
             return (
               <Col xs={24} sm={12} lg={8} key={item.id}>
                 <Card
                   variant="borderless"
                   className="menu-card glass-card"
                   style={{ "--accent": accent } as CSSProperties}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isActive}
                   onClick={() => setSelectedItem(item)}
+                  onKeyDown={handleCardKeyDown(item)}
                   onMouseMove={handleCardMouseMove}
                   onMouseLeave={handleCardMouseLeave}
                 >
-                  <div
-                    className={`menu-card-media${imageUrl ? " menu-zoomable" : ""}`}
-                    role={imageUrl ? "button" : undefined}
-                    tabIndex={imageUrl ? 0 : undefined}
-                    aria-label={imageUrl ? t(item.name) : undefined}
-                    onClick={(event) => handleImageZoom(item, event)}
-                    onKeyDown={handleImageKeyDown(item)}
-                  >
-                    {imageUrl && (
+                  {imageUrl ? (
+                    <button
+                      type="button"
+                      className="menu-card-media menu-zoomable"
+                      aria-label={t(item.name)}
+                      onClick={(event) => handleImageZoom(item, event)}
+                    >
                       <Image
                         src={imageUrl}
                         alt={t(item.name)}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
-                    )}
-                  </div>
+                    </button>
+                  ) : (
+                    <div className="menu-card-media" />
+                  )}
                   <div className="menu-card-header">
                     <Tag className="menu-category-tag">{categoryLabel(item.category)}</Tag>
                     <Text className="menu-price">{formatter.format(item.price)}</Text>

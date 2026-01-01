@@ -4,6 +4,8 @@ export type MenuItem = {
   description?: string;
   category: string;
   price: number;
+  sku?: string;
+  topicId?: number | null;
   available: boolean;
   imageUrl?: string;
   createdAt: string;
@@ -15,6 +17,8 @@ export type MenuItemInput = {
   description?: string;
   category: string;
   price: number;
+  sku?: string;
+  topicId?: number | null;
   available: boolean;
   imageUrl?: string;
 };

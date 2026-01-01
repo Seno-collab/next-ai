@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { defaultLocale, messages, type Locale } from "@/i18n/messages";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "next-ai-locale";
 
@@ -13,7 +13,7 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
-export function LocaleProvider({ children }: { children: React.ReactNode }) {
+export function LocaleProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const [locale, setLocale] = useState<Locale>(defaultLocale);
 
   useEffect(() => {

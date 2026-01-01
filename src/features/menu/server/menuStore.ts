@@ -3,53 +3,6 @@ import type { MenuAnalytics, MenuItem, MenuItemInput, MenuItemUpdate } from "@/f
 
 const items = new Map<string, MenuItem>();
 
-const seedItems: MenuItemInput[] = [
-  {
-    name: "menu.seedItems.cafeSua.name",
-    description: "menu.seedItems.cafeSua.description",
-    category: "coffee",
-    price: 42000,
-    available: true,
-  },
-  {
-    name: "menu.seedItems.traDaoCamSa.name",
-    description: "menu.seedItems.traDaoCamSa.description",
-    category: "tea",
-    price: 48000,
-    available: true,
-  },
-  {
-    name: "menu.seedItems.banhTiramisu.name",
-    description: "menu.seedItems.banhTiramisu.description",
-    category: "dessert",
-    price: 55000,
-    available: false,
-  },
-  {
-    name: "menu.seedItems.banhMiChao.name",
-    description: "menu.seedItems.banhMiChao.description",
-    category: "food",
-    price: 65000,
-    available: true,
-  },
-];
-
-function seedIfEmpty() {
-  if (items.size > 0) {
-    return;
-  }
-  const now = new Date().toISOString();
-  seedItems.forEach((item) => {
-    const id = randomUUID();
-    items.set(id, {
-      ...item,
-      id,
-      createdAt: now,
-      updatedAt: now,
-    });
-  });
-}
-
 function normalizeInput(input: MenuItemInput): MenuItemInput {
   if (!input.name?.trim()) {
     throw new Error("menu.errors.nameRequired");
@@ -58,18 +11,22 @@ function normalizeInput(input: MenuItemInput): MenuItemInput {
     throw new Error("menu.errors.priceInvalid");
   }
   const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
+  const sku = typeof input.sku === "string" ? input.sku.trim() : "";
+  const topicId =
+    typeof input.topicId === "number" && Number.isFinite(input.topicId) ? input.topicId : undefined;
   return {
     name: input.name.trim(),
     description: input.description?.trim() ?? "",
     category: input.category || "other",
     price: Number(input.price),
+    sku: sku || undefined,
+    topicId,
     available: input.available ?? true,
     imageUrl,
   };
 }
 
 export function listMenuItems() {
-  seedIfEmpty();
   return Array.from(items.values()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -86,6 +43,10 @@ export function createMenuItem(payload: MenuItemInput) {
   return item;
 }
 
+export function upsertMenuItem(item: MenuItem) {
+  items.set(item.id, item);
+}
+
 export function updateMenuItem(id: string, updates: MenuItemUpdate) {
   const current = items.get(id);
   if (!current) {
@@ -97,6 +58,14 @@ export function updateMenuItem(id: string, updates: MenuItemUpdate) {
         ? updates.imageUrl.trim()
         : ""
       : current.imageUrl ?? "";
+  const nextSku =
+    updates.sku !== undefined ? (typeof updates.sku === "string" ? updates.sku.trim() : "") : current.sku ?? "";
+  const nextTopicId =
+    updates.topicId !== undefined
+      ? typeof updates.topicId === "number" && Number.isFinite(updates.topicId)
+        ? updates.topicId
+        : null
+      : current.topicId ?? undefined;
   const next: MenuItem = {
     ...current,
     ...updates,
@@ -104,6 +73,8 @@ export function updateMenuItem(id: string, updates: MenuItemUpdate) {
     description: updates.description?.trim() ?? current.description,
     category: updates.category ?? current.category,
     price: updates.price ?? current.price,
+    sku: nextSku || undefined,
+    topicId: nextTopicId,
     available: updates.available ?? current.available,
     imageUrl: nextImageUrl,
     updatedAt: new Date().toISOString(),

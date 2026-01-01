@@ -82,10 +82,15 @@ export function useAuthSession() {
     setLoadingAction("login");
     setError(null);
     try {
+      const { restaurantId, ...rest } = payload;
+      const loginPayload =
+        typeof restaurantId === "number" && Number.isFinite(restaurantId)
+          ? { ...rest, restaurant_id: restaurantId }
+          : rest;
       const response = await fetchJson<AuthResponsePayload>("/api/auth/login", {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(loginPayload),
       });
       const responseCode = parseResponseCode(response.response_code);
       if (responseCode !== null && responseCode >= 400) {

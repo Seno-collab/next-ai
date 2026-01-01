@@ -218,7 +218,7 @@ export default function QrCodeScene({ value }: Readonly<{ value?: string }>) {
       moduleMaterial.dispose();
       glassMaterial.dispose();
       renderer.dispose();
-      mountEl.removeChild(renderer.domElement);
+      renderer.domElement.remove();
     };
   }, [value]);
 

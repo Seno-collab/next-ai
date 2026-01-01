@@ -27,6 +27,15 @@ function resolveAuthHeader(request: NextRequest) {
   return `Bearer ${cookieToken}`;
 }
 
+function resolveRestaurantHeader(request: NextRequest) {
+  const headerValue = request.headers.get("x-restaurant-id");
+  if (!headerValue) {
+    return null;
+  }
+  const trimmed = headerValue.trim();
+  return trimmed ? trimmed : null;
+}
+
 export const POST = withApiLogging(async (request: NextRequest) => {
   const locale = getRequestLocale(request);
   const t = createTranslator(locale);
@@ -55,8 +64,12 @@ export const POST = withApiLogging(async (request: NextRequest) => {
       upstreamFormData.append("logo", typedFile);
       const headers: HeadersInit = { "x-locale": locale };
       const authHeader = resolveAuthHeader(request);
+      const restaurantHeader = resolveRestaurantHeader(request);
       if (authHeader) {
         headers.authorization = authHeader;
+      }
+      if (restaurantHeader) {
+        headers["X-Restaurant-ID"] = restaurantHeader;
       }
 
       const response = await fetch(`${API_BASE_URL}/api/upload/logo`, {

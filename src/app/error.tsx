@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLocale } from "@/hooks/useLocale";
 import { Button, Space, Typography } from "antd";
 import { useRouter } from "next/navigation";
-import { useLocale } from "@/hooks/useLocale";
+import { useEffect } from "react";
 
 const { Title, Paragraph, Text } = Typography;
 
-export default function Error({
+export default function ErrorPage({
   error,
   reset,
-}: {
+}: Readonly<{
   error: Error & { digest?: string };
   reset: () => void;
-}) {
+}>) {
   const { t } = useLocale();
   const router = useRouter();
 

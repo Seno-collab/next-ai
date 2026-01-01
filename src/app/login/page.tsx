@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { BulbOutlined, GlobalOutlined, MoonOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useState } from "react";
@@ -27,7 +26,10 @@ export default function LoginPage() {
   const handleSubmit = async (values: LoginValues) => {
     setSuccess(null);
     try {
-      await login(values);
+      await login({
+        email: values.email,
+        password: values.password,
+      });
       setSuccess(t("login.success"));
       router.push("/admin/dashboard");
     } catch {

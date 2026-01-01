@@ -5,9 +5,16 @@ const toastCooldownMs = 1200;
 const lastToastByMessage = new Map<string, number>();
 const LOCALE_STORAGE_KEY = "next-ai-locale";
 const AUTH_TOKENS_STORAGE_KEY = "next-ai-auth-tokens";
+const RESTAURANT_ID_STORAGE_KEY = "next-ai-restaurant-id";
+const RESTAURANT_HEADER_NAME = "X-Restaurant-ID";
+export const RESTAURANT_ID_CHANGE_EVENT = "restaurant-id-change";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 const AUTH_REFRESH_PATH = "/api/auth/refresh-token";
+const AUTH_LOGOUT_PATH = "/api/auth/logout";
+const LOGIN_PATH = "/login";
+const logPrefix = "[api]";
 let refreshPromise: Promise<StoredAuthTokens | null> | null = null;
+let logoutPromise: Promise<void> | null = null;
 
 type ToastKind = "error" | "success" | "warning";
 
@@ -15,9 +22,18 @@ export type StoredAuthTokens = {
   accessToken: string;
   refreshToken: string;
   expiresIn?: number;
+  expiresAt?: number;
+  issuedAt?: number;
 };
 
 type TokenRecord = Record<string, unknown>;
+
+function normalizeEpochMs(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value < 1_000_000_000_000 ? value * 1000 : value;
+}
 
 async function getErrorMessage(response: Response) {
   const contentType = response.headers.get("content-type") ?? "";
@@ -76,13 +92,23 @@ export function getStoredAuthTokens(): StoredAuthTokens | null {
   }
   try {
     const parsed = JSON.parse(raw) as Partial<StoredAuthTokens>;
-    if (typeof parsed?.accessToken !== "string" || typeof parsed?.refreshToken !== "string") {
+    if (
+      typeof parsed?.accessToken !== "string" ||
+      typeof parsed?.refreshToken !== "string"
+    ) {
       return null;
     }
+    const expiresAt = normalizeEpochMs(
+      typeof parsed.expiresAt === "number" ? parsed.expiresAt : undefined
+    );
     return {
       accessToken: parsed.accessToken,
       refreshToken: parsed.refreshToken,
-      expiresIn: typeof parsed.expiresIn === "number" ? parsed.expiresIn : undefined,
+      expiresIn:
+        typeof parsed.expiresIn === "number" ? parsed.expiresIn : undefined,
+      expiresAt,
+      issuedAt:
+        typeof parsed.issuedAt === "number" ? parsed.issuedAt : undefined,
     };
   } catch {
     return null;
@@ -97,7 +123,83 @@ export function setStoredAuthTokens(tokens: StoredAuthTokens | null) {
     globalThis.window.localStorage.removeItem(AUTH_TOKENS_STORAGE_KEY);
     return;
   }
-  globalThis.window.localStorage.setItem(AUTH_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
+  const issuedAt =
+    typeof tokens.issuedAt === "number" && Number.isFinite(tokens.issuedAt)
+      ? tokens.issuedAt
+      : Date.now();
+  const expiresAt = resolveExpiresAt({ ...tokens, issuedAt });
+  const normalized: StoredAuthTokens = {
+    ...tokens,
+    issuedAt,
+  };
+  if (typeof expiresAt === "number" && Number.isFinite(expiresAt)) {
+    normalized.expiresAt = expiresAt;
+  }
+  globalThis.window.localStorage.setItem(
+    AUTH_TOKENS_STORAGE_KEY,
+    JSON.stringify(normalized)
+  );
+}
+
+export function getStoredRestaurantId() {
+  if (!isBrowser) {
+    return null;
+  }
+  const raw = globalThis.window.localStorage.getItem(
+    RESTAURANT_ID_STORAGE_KEY
+  );
+  if (!raw) {
+    return null;
+  }
+  return raw;
+}
+
+export function setStoredRestaurantId(
+  restaurantId: number | string | null
+) {
+  if (!isBrowser) {
+    return;
+  }
+  const currentValue = getStoredRestaurantId();
+  if (
+    restaurantId === null ||
+    restaurantId === undefined ||
+    (typeof restaurantId === "number" && !Number.isFinite(restaurantId))
+  ) {
+    globalThis.window.localStorage.removeItem(RESTAURANT_ID_STORAGE_KEY);
+    if (currentValue !== null) {
+      dispatchRestaurantIdChange(null);
+    }
+    return;
+  }
+  const value =
+    typeof restaurantId === "number"
+      ? String(restaurantId)
+      : restaurantId.trim();
+  if (!value) {
+    globalThis.window.localStorage.removeItem(RESTAURANT_ID_STORAGE_KEY);
+    if (currentValue !== null) {
+      dispatchRestaurantIdChange(null);
+    }
+    return;
+  }
+  if (currentValue === value) {
+    return;
+  }
+  globalThis.window.localStorage.setItem(
+    RESTAURANT_ID_STORAGE_KEY,
+    value
+  );
+  dispatchRestaurantIdChange(value);
+}
+
+function dispatchRestaurantIdChange(restaurantId: string | null) {
+  if (!isBrowser) {
+    return;
+  }
+  globalThis.window.dispatchEvent(
+    new CustomEvent(RESTAURANT_ID_CHANGE_EVENT, { detail: { restaurantId } })
+  );
 }
 
 function extractStoredTokens(payload: unknown): StoredAuthTokens | null {
@@ -114,17 +216,24 @@ function extractStoredTokens(payload: unknown): StoredAuthTokens | null {
   }
   sources.push(record);
 
-  const readString = (value: unknown) => (typeof value === "string" ? value : undefined);
-  const readNumber = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+  const readString = (value: unknown) =>
+    typeof value === "string" ? value : undefined;
+  const readNumber = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  const readEpochMs = (value: unknown) =>
+    normalizeEpochMs(readNumber(value));
 
   for (const source of sources) {
     const accessToken = readString(source.accessToken ?? source.access_token);
-    const refreshToken = readString(source.refreshToken ?? source.refresh_token);
+    const refreshToken = readString(
+      source.refreshToken ?? source.refresh_token
+    );
     if (accessToken && refreshToken) {
       return {
         accessToken,
         refreshToken,
         expiresIn: readNumber(source.expiresIn ?? source.expires_in),
+        expiresAt: readEpochMs(source.expiresAt ?? source.expires_at),
       };
     }
   }
@@ -143,13 +252,18 @@ function withLocaleHeader(init?: RequestInit) {
     return init;
   }
   const headers = new Headers(init?.headers);
-  const storedLocale = globalThis.window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  const storedLocale =
+    globalThis.window.localStorage.getItem(LOCALE_STORAGE_KEY);
   if (storedLocale === "vi" || storedLocale === "en") {
     headers.set("x-locale", storedLocale);
   }
   const tokens = getStoredAuthTokens();
   if (tokens?.accessToken && !headers.has("authorization")) {
     headers.set("authorization", `Bearer ${tokens.accessToken}`);
+  }
+  const restaurantId = getStoredRestaurantId();
+  if (restaurantId && !headers.has(RESTAURANT_HEADER_NAME)) {
+    headers.set(RESTAURANT_HEADER_NAME, restaurantId);
   }
   return { ...init, headers };
 }
@@ -164,9 +278,156 @@ function resolveRequestUrl(input: RequestInfo | URL): string {
   return input.url;
 }
 
+function resolveRequestMethod(input: RequestInfo | URL, init?: RequestInit) {
+  const request =
+    typeof input === "object" &&
+    input !== null &&
+    "method" in input &&
+    typeof input.method === "string"
+      ? (input as Request)
+      : null;
+  return request?.method?.toUpperCase() ?? init?.method?.toUpperCase() ?? "GET";
+}
+
+function formatRequestUrl(input: RequestInfo | URL) {
+  const url = resolveRequestUrl(input);
+  try {
+    const base = isBrowser ? globalThis.window.location.origin : "http://localhost";
+    const parsed = new URL(url, base);
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return url;
+  }
+}
+
 function isRefreshRequest(input: RequestInfo | URL) {
   const url = resolveRequestUrl(input);
   return url.includes(AUTH_REFRESH_PATH);
+}
+
+function isLogoutRequest(input: RequestInfo | URL) {
+  const url = resolveRequestUrl(input);
+  return url.includes(AUTH_LOGOUT_PATH);
+}
+
+function redirectToLogin() {
+  if (!isBrowser) {
+    return;
+  }
+  if (globalThis.window.location.pathname === LOGIN_PATH) {
+    return;
+  }
+  globalThis.window.location.replace(LOGIN_PATH);
+}
+
+function decodeBase64Url(value: string) {
+  if (!isBrowser || typeof globalThis.atob !== "function") {
+    return null;
+  }
+  try {
+    const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = normalized.padEnd(
+      Math.ceil(normalized.length / 4) * 4,
+      "="
+    );
+    return globalThis.atob(padded);
+  } catch {
+    return null;
+  }
+}
+
+function parseJwtExpiry(token: string) {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const decoded = decodeBase64Url(parts[1]);
+  if (!decoded) {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(decoded) as { exp?: number };
+    if (typeof payload.exp === "number" && Number.isFinite(payload.exp)) {
+      return payload.exp * 1000;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function resolveExpiresAt(tokens: StoredAuthTokens) {
+  const normalizedExpiresAt = normalizeEpochMs(tokens.expiresAt);
+  if (normalizedExpiresAt) {
+    return normalizedExpiresAt;
+  }
+  const jwtExpiresAt = parseJwtExpiry(tokens.accessToken);
+  if (jwtExpiresAt) {
+    return jwtExpiresAt;
+  }
+  if (typeof tokens.expiresIn === "number" && Number.isFinite(tokens.expiresIn)) {
+    const issuedAt =
+      typeof tokens.issuedAt === "number" && Number.isFinite(tokens.issuedAt)
+        ? tokens.issuedAt
+        : null;
+    if (issuedAt !== null) {
+      return issuedAt + tokens.expiresIn * 1000;
+    }
+  }
+  return null;
+}
+
+function isTokenExpired(tokens: StoredAuthTokens) {
+  const expiresAt = resolveExpiresAt(tokens);
+  if (!expiresAt) {
+    return false;
+  }
+  return Date.now() >= expiresAt;
+}
+
+async function expireSession() {
+  if (!isBrowser) {
+    return;
+  }
+  if (logoutPromise) {
+    await logoutPromise;
+    return;
+  }
+  logoutPromise = (async () => {
+    setStoredAuthTokens(null);
+    try {
+      const initWithLocale = withLocaleHeader({ method: "POST" });
+      await fetch(AUTH_LOGOUT_PATH, initWithLocale);
+    } catch {
+      // Ignore network errors; local session is already cleared.
+    }
+  })();
+  try {
+    await logoutPromise;
+  } finally {
+    logoutPromise = null;
+  }
+}
+
+async function refreshIfTokenExpired(input: RequestInfo | URL) {
+  if (!isBrowser || isRefreshRequest(input) || isLogoutRequest(input)) {
+    return;
+  }
+  const tokens = getStoredAuthTokens();
+  if (!tokens) {
+    return;
+  }
+  if (!isTokenExpired(tokens)) {
+    return;
+  }
+  if (!tokens.refreshToken) {
+    await expireSession();
+    return;
+  }
+  const refreshed = await refreshAuthTokens();
+  if (!refreshed?.accessToken) {
+    await expireSession();
+  }
 }
 
 async function refreshAuthTokens(): Promise<StoredAuthTokens | null> {
@@ -181,6 +442,11 @@ async function refreshAuthTokens(): Promise<StoredAuthTokens | null> {
     return refreshPromise;
   }
   refreshPromise = (async () => {
+    const handleRefreshFailure = async () => {
+      await expireSession();
+      redirectToLogin();
+      return null;
+    };
     try {
       const initWithLocale = withLocaleHeader({
         method: "POST",
@@ -189,22 +455,22 @@ async function refreshAuthTokens(): Promise<StoredAuthTokens | null> {
       });
       const headers = new Headers(initWithLocale?.headers);
       headers.delete("authorization");
-      const response = await fetch(AUTH_REFRESH_PATH, { ...initWithLocale, headers });
+      const response = await fetch(AUTH_REFRESH_PATH, {
+        ...initWithLocale,
+        headers,
+      });
       if (!response.ok) {
-        setStoredAuthTokens(null);
-        return null;
+        return handleRefreshFailure();
       }
       const data = (await response.json().catch(() => ({}))) as TokenRecord;
       const tokens = extractStoredTokens(data);
       if (!tokens) {
-        setStoredAuthTokens(null);
-        return null;
+        return handleRefreshFailure();
       }
       setStoredAuthTokens(tokens);
       return tokens;
     } catch {
-      setStoredAuthTokens(null);
-      return null;
+      return handleRefreshFailure();
     } finally {
       refreshPromise = null;
     }
@@ -224,14 +490,38 @@ export function notifyError(message: string) {
   notify("error", message);
 }
 
-export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit) {
+export async function fetchJson<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit
+) {
+  const shouldLog = process.env.NODE_ENV === "development";
+  const method = shouldLog ? resolveRequestMethod(input, init) : "GET";
+  const url = shouldLog ? formatRequestUrl(input) : "";
+  const start = shouldLog ? Date.now() : 0;
+  if (shouldLog) {
+    console.info(`${logPrefix} ${method} ${url} -> start`);
+  }
+  await refreshIfTokenExpired(input);
   let response: Response;
   try {
     response = await fetch(input, withLocaleHeader(init));
   } catch (error) {
+    if (shouldLog) {
+      const duration = Date.now() - start;
+      console.error(
+        `${logPrefix} ${method} ${url} -> ERROR ${duration}ms`,
+        error
+      );
+    }
     const message = error instanceof Error ? error.message : "Network error";
     notifyError(message);
     throw new Error(message);
+  }
+  if (shouldLog) {
+    const duration = Date.now() - start;
+    console.info(
+      `${logPrefix} ${method} ${url} -> ${response.status} ${duration}ms`
+    );
   }
 
   if (!response.ok) {
@@ -243,7 +533,10 @@ export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit)
     if (canRefresh) {
       const refreshed = await refreshAuthTokens();
       if (refreshed?.accessToken) {
-        const retryResponse = await fetch(input, withLocaleHeader(withAuthHeader(init, refreshed.accessToken)));
+        const retryResponse = await fetch(
+          input,
+          withLocaleHeader(withAuthHeader(init, refreshed.accessToken))
+        );
         if (retryResponse.ok) {
           return (await retryResponse.json()) as T;
         }

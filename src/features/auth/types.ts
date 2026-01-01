@@ -12,6 +12,7 @@ export type AuthPublicUser = Omit<AuthUser, "password">;
 export type AuthCredentials = {
   email: string;
   password: string;
+  restaurantId?: number | null;
 };
 
 export type RegisterPayload = AuthCredentials & {
