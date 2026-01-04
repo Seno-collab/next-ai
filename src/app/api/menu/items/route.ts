@@ -53,14 +53,17 @@ function parseResponseCode(value: unknown) {
 
 function mapCategoryToType(category: string) {
   switch (category) {
+    case "beverage":
+    case "dish":
+    case "combo":
+    case "extra":
+      return category;
     case "coffee":
     case "tea":
       return "beverage";
     case "dessert":
     case "food":
       return "dish";
-    case "combo":
-      return "combo";
     default:
       return "extra";
   }
@@ -69,15 +72,18 @@ function mapCategoryToType(category: string) {
 function mapTypeToCategory(type: string) {
   switch (type) {
     case "beverage":
-      return "coffee";
     case "dish":
-      return "food";
     case "combo":
-      return "combo";
     case "extra":
-      return "other";
+      return type;
+    case "coffee":
+    case "tea":
+      return "beverage";
+    case "dessert":
+    case "food":
+      return "dish";
     default:
-      return "other";
+      return "extra";
   }
 }
 

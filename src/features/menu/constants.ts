@@ -1,7 +1,6 @@
 export const menuCategories = [
-  { value: "coffee", labelKey: "menu.categories.coffee" },
-  { value: "tea", labelKey: "menu.categories.tea" },
-  { value: "dessert", labelKey: "menu.categories.dessert" },
-  { value: "food", labelKey: "menu.categories.food" },
-  { value: "other", labelKey: "menu.categories.other" },
+  { value: "dish", labelKey: "menu.categories.dish" },
+  { value: "beverage", labelKey: "menu.categories.beverage" },
+  { value: "combo", labelKey: "menu.categories.combo" },
+  { value: "extra", labelKey: "menu.categories.extra" },
 ];

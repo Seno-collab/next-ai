@@ -17,7 +17,7 @@ function normalizeInput(input: MenuItemInput): MenuItemInput {
   return {
     name: input.name.trim(),
     description: input.description?.trim() ?? "",
-    category: input.category || "other",
+    category: input.category || "extra",
     price: Number(input.price),
     sku: sku || undefined,
     topicId,

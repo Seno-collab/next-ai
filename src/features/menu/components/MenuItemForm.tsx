@@ -8,7 +8,9 @@ import { useRef, useState } from "react";
 import { menuCategories } from "@/features/menu/constants";
 import type { Topic } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
-import { fetchJson } from "@/lib/api/client";
+import { fetchJson, notifyError } from "@/lib/api/client";
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export type MenuItemFormValues = {
   name: string;
@@ -60,6 +62,16 @@ export function MenuItemForm({
     if (!file) {
       return;
     }
+    if (!file.type.startsWith("image/")) {
+      notifyError(t("menu.errors.uploadInvalid"));
+      event.target.value = "";
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      notifyError(t("menu.errors.uploadTooLarge"));
+      event.target.value = "";
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();
@@ -71,11 +83,11 @@ export function MenuItemForm({
       form.setFieldsValue({ imageUrl: response.url });
     } catch {
       // Error toast is already handled by fetchJson.
-    } finally {
-      setUploading(false);
-      event.target.value = "";
-    }
-  };
+      } finally {
+        setUploading(false);
+        event.target.value = "";
+      }
+    };
 
   return (
     <Form form={form} layout="vertical" onFinish={onSubmit}>
@@ -129,7 +141,12 @@ export function MenuItemForm({
         <Input placeholder={t("menu.form.imagePlaceholder")} type="url" allowClear />
       </Form.Item>
       <Space size="small" wrap>
-        <Button icon={<UploadOutlined />} onClick={handlePickFile} loading={uploading} disabled={loading}>
+        <Button
+          icon={<UploadOutlined />}
+          onClick={handlePickFile}
+          loading={uploading}
+          disabled={loading || uploading}
+        >
           {t("menu.form.imageUpload")}
         </Button>
         <Button

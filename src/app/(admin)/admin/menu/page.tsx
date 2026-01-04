@@ -222,11 +222,16 @@ export default function MenuManagementPage() {
       dataIndex: "available",
       key: "available",
       render: (value: boolean, record: MenuItem) => (
-        <Switch
-          checked={value}
-          onChange={(checked) => toggleAvailability(record.id, checked)}
-          loading={action === "toggle" && pendingId === record.id}
-        />
+        <Space size="small">
+          <Switch
+            checked={value}
+            onChange={(checked) => toggleAvailability(record.id, checked)}
+            loading={action === "toggle" && pendingId === record.id}
+          />
+          <Text type={value ? "success" : "secondary"}>
+            {value ? t("menu.available") : t("menu.unavailable")}
+          </Text>
+        </Space>
       ),
     },
     {

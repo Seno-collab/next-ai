@@ -192,11 +192,10 @@ export const messages = {
         categories: "Danh mục",
       },
       categories: {
-        coffee: "Cà phê",
-        tea: "Trà",
-        dessert: "Tráng miệng",
-        food: "Đồ ăn",
-        other: "Khác",
+        dish: "Món ăn",
+        beverage: "Đồ uống",
+        combo: "Combo",
+        extra: "Phụ thêm",
       },
       seedItems: {
         cafeSua: {
@@ -712,11 +711,10 @@ export const messages = {
         categories: "Categories",
       },
       categories: {
-        coffee: "Coffee",
-        tea: "Tea",
-        dessert: "Dessert",
-        food: "Food",
-        other: "Other",
+        dish: "Dish",
+        beverage: "Beverage",
+        combo: "Combo",
+        extra: "Extra",
       },
       seedItems: {
         cafeSua: {

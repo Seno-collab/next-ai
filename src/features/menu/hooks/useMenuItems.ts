@@ -9,9 +9,20 @@ import { useLocale } from "@/hooks/useLocale";
 import { fetchApiJson, fetchJson, notifyError } from "@/lib/api/client";
 import { useCallback, useEffect, useState } from "react";
 
-type MenuItemsResponse = { items: MenuItem[] };
+type MenuItemsResponse = {
+  items?: unknown[];
+  data?: unknown;
+  message?: string;
+  response_code?: string | number;
+};
 
 type MenuItemResponse = { item: MenuItem };
+type MenuStatusResponse = {
+  item?: MenuItem;
+  data?: unknown;
+  message?: string;
+  response_code?: string | number;
+};
 
 type MenuAction =
   | "fetch"
@@ -124,24 +135,39 @@ function readBoolean(value: unknown) {
   return null;
 }
 
-function mapTypeToCategory(type: string) {
-  switch (type) {
-    case "beverage":
-      return "coffee";
+function normalizeCategory(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  switch (normalized) {
     case "dish":
-      return "food";
-    case "combo":
-      return "combo";
     case "extra":
-      return "other";
+    case "beverage":
+    case "combo":
+      return normalized;
+    case "coffee":
+    case "tea":
+      return "beverage";
+    case "dessert":
+    case "food":
+      return "dish";
+    case "other":
+      return "extra";
     default:
-      return "other";
+      return normalized;
   }
 }
 
 function readMenuItemId(record: MenuItemRecord) {
   const idValue =
-    record.id ?? record.menu_item_id ?? record.item_id ?? record.menuItemId;
+    record.id ??
+    record.menu_item_id ??
+    record.item_id ??
+    record.menuItemId ??
+    record.sku ??
+    record.sku_code ??
+    record.code;
   if (typeof idValue === "string" && idValue.trim()) {
     return idValue;
   }
@@ -160,9 +186,11 @@ function mapMenuItemRecord(record: MenuItemRecord): MenuItem | null {
   const description =
     readString(record.description ?? record.desc ?? record.detail) ?? "";
   const typeValue = readString(record.type);
+  const categoryRaw = readString(record.category ?? record.category_code);
   const category =
-    readString(record.category ?? record.category_code) ??
-    (typeValue ? mapTypeToCategory(typeValue) : "other");
+    normalizeCategory(categoryRaw) ??
+    normalizeCategory(typeValue) ??
+    "extra";
   const price =
     readNumber(
       record.price ??
@@ -208,6 +236,30 @@ function mapMenuItemRecord(record: MenuItemRecord): MenuItem | null {
     createdAt,
     updatedAt,
   };
+}
+
+function extractMenuItem(payload: unknown): MenuItem | null {
+  if (!payload) {
+    return null;
+  }
+  if (Array.isArray(payload)) {
+    return null;
+  }
+  if (typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    const itemRecord = readRecord(
+      record.item ??
+        record.menu_item ??
+        record.menuItem ??
+        record.data ??
+        record.result
+    );
+    if (itemRecord) {
+      return mapMenuItemRecord(itemRecord);
+    }
+    return mapMenuItemRecord(record as MenuItemRecord);
+  }
+  return null;
 }
 
 function extractMenuItems(payload: unknown): MenuItem[] | null {
@@ -288,7 +340,8 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
       const response = await fetchJson<MenuItemsResponse>("/api/menu/items", {
         cache: "no-store",
       });
-      setItems(response.items);
+      const nextItems = extractMenuItems(response) ?? [];
+      setItems(nextItems);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : t("menu.errors.loadFailed");
@@ -467,18 +520,36 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
       setPendingId(id);
       setError(null);
       try {
-        const response = await fetchJson<MenuItemResponse>(
-          `/api/menu/items/${id}`,
+        const response = await fetchJson<MenuStatusResponse>(
+          `/api/menu/items/${id}/status`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ available }),
+            body: JSON.stringify({ is_active: available }),
           }
         );
+        const responseCode = parseResponseCode(response.response_code);
+        if (responseCode !== null && responseCode !== 200) {
+          const message =
+            typeof response.message === "string"
+              ? response.message
+              : t("menu.errors.updateStatusFailed");
+          notifyError(message);
+          setError(message);
+          throw new Error(message);
+        }
+        const updatedItem =
+          response.item ??
+          extractMenuItem(response) ??
+          extractMenuItem(response.data);
         setItems((prev) =>
-          prev.map((item) => (item.id === id ? response.item : item))
+          prev.map((item) =>
+            item.id === id
+              ? updatedItem ?? { ...item, available }
+              : item
+          )
         );
-        return response.item;
+        return updatedItem ?? null;
       } catch (err) {
         const message =
           err instanceof Error
