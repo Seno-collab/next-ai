@@ -117,7 +117,7 @@ export function useTopics() {
     try {
       const query = buildTopicsQuery(params);
       const response = await fetchApiJson<TopicsResponse>(
-        `/api/menu/restaurant/topics${query}`,
+        `/api/menu/topics/search${query}`,
         { cache: "no-store" }
       );
       setTopics(extractTopics(response));
