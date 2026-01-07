@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Alert, Button, Card, Space, Typography } from "antd";
 import { useEffect, useRef, useState } from "react";
 import QrCodeScene from "@/features/admin/components/QrCodeScene";
+import LoginGalaxyScene from "@/features/auth/components/LoginGalaxyScene";
 import { useAuthSession } from "@/features/auth/hooks/useAuthSession";
 import { useLocale } from "@/hooks/useLocale";
 import AuthQrBackground from "@/features/auth/components/AuthQrBackground";
@@ -88,7 +89,8 @@ export default function LogoutPage() {
             </Space>
           </Card>
         </div>
-        <div className="auth-visual">
+        <div className="auth-visual login-visual logout-visual">
+          <LoginGalaxyScene />
           <QrCodeScene />
           <div className="auth-caption">
             <Text>{t("logout.visualCaption")}</Text>
