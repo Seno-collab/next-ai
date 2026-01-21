@@ -57,7 +57,17 @@ export default function MenuManagementPage() {
   const [page, setPage] = useState(1);
   const pageSize = 6;
 
+  const effectiveLimit = searchMeta?.limit && searchMeta.limit > 0 ? searchMeta.limit : pageSize;
+  const metaTotalPages = searchMeta?.totalPages ?? null;
   const totalItems = searchMeta?.totalItems ?? items.length;
+  const totalPages =
+    typeof metaTotalPages === "number" && metaTotalPages > 0
+      ? metaTotalPages
+      : Math.max(1, Math.ceil(totalItems / effectiveLimit));
+  const paginationTotal =
+    typeof metaTotalPages === "number" && metaTotalPages > 0
+      ? metaTotalPages * effectiveLimit
+      : totalItems;
   const availableItems = items.filter((item) => item.available).length;
   const categoryCount = new Set(items.map((item) => item.category)).size;
 
@@ -319,16 +329,16 @@ export default function MenuManagementPage() {
             </Row>
           </div>
           <Text type="secondary" className="menu-admin-results">
-            {totalItems} {t("menu.itemsLabel")}
+            {totalPages} {t("menu.pagesLabel")}
           </Text>
         </Space>
       </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card variant="borderless" className="glass-card metric-card">
-            <Text type="secondary">{t("analytics.totalItems")}</Text>
+            <Text type="secondary">{t("analytics.totalPages")}</Text>
             <Title level={3} style={{ margin: 0 }}>
-              {totalItems}
+              {totalPages}
             </Title>
           </Card>
         </Col>
@@ -358,8 +368,8 @@ export default function MenuManagementPage() {
           dataSource={items}
           pagination={{
             current: page,
-            pageSize,
-            total: totalItems,
+            pageSize: effectiveLimit,
+            total: paginationTotal,
             size: "small",
             showSizeChanger: false,
             onChange: (nextPage) => setPage(nextPage),

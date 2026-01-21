@@ -37,9 +37,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Ignore hydration mismatches caused by extensions injecting attributes into <html>/<body>.
   return (
-    <html lang={defaultLocale} data-theme="dark">
+    <html lang={defaultLocale} data-theme="dark" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} ${sora.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <Providers>{children}</Providers>
