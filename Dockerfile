@@ -1,16 +1,18 @@
 # syntax=docker/dockerfile:1.7
+ARG PNPM_VERSION=10.28.1
 FROM node:22.21.0-slim AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-RUN corepack enable
+RUN corepack enable && corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
 WORKDIR /app
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# Avoid hardlinked node_modules to prevent overlayfs extraction issues
+RUN pnpm install --frozen-lockfile --package-import-method=copy
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
@@ -24,7 +26,8 @@ RUN pnpm build
 
 FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+# Avoid hardlinked node_modules to prevent overlayfs extraction issues
+RUN pnpm install --frozen-lockfile --prod --package-import-method=copy
 
 FROM base AS runner
 ENV NODE_ENV=production
