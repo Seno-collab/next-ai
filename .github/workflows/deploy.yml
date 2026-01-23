@@ -32,12 +32,17 @@ jobs:
 
       - name: Verify API URL secret
         run: |
-          if [ -z "${{ secrets.NEXT_PUBLIC_API_URL }}" ]; then
+          if [ -z "$NEXT_PUBLIC_API_URL" ]; then
             echo "❌ NEXT_PUBLIC_API_URL secret is not set!"
             echo "Go to Settings → Secrets → Actions and add NEXT_PUBLIC_API_URL"
             exit 1
           fi
-          echo "✅ API URL configured: ${{ secrets.NEXT_PUBLIC_API_URL }}"
+          # Mask URL for security - only show domain pattern
+          URL_LENGTH=${#NEXT_PUBLIC_API_URL}
+          MASKED_URL=$(echo "$NEXT_PUBLIC_API_URL" | sed -E 's|^(https?://)([^/]+)(.*)|\1***masked***\3|')
+          echo "✅ API URL configured: $MASKED_URL (length: $URL_LENGTH chars)"
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -117,17 +122,18 @@ jobs:
       - name: Test API connectivity
         if: secrets.DEPLOYMENT_URL != '' && secrets.NEXT_PUBLIC_API_URL != ''
         run: |
-          API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
-          echo "🔍 Testing API connectivity: $API_URL"
+          echo "🔍 Testing API connectivity..."
 
           # Try to reach the API (may not have /health endpoint)
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL" 2>/dev/null || echo "000")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$NEXT_PUBLIC_API_URL" 2>/dev/null || echo "000")
 
           if [ "$HTTP_CODE" != "000" ]; then
             echo "✅ API is reachable (HTTP $HTTP_CODE)"
           else
             echo "⚠️  Could not reach API (this may be expected if API has strict CORS/auth)"
           fi
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
       - name: Deployment summary
         if: always()
@@ -138,8 +144,15 @@ jobs:
           echo "Repository: ${{ github.repository }}"
           echo "Commit: ${{ github.sha }}"
           echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          echo "API URL: ${{ secrets.NEXT_PUBLIC_API_URL }}"
-          if [ -n "${{ secrets.DEPLOYMENT_URL }}" ]; then
-            echo "Frontend URL: ${{ secrets.DEPLOYMENT_URL }}"
+          if [ -n "$NEXT_PUBLIC_API_URL" ]; then
+            echo "API URL: ***configured***"
+          else
+            echo "API URL: ❌ not set"
+          fi
+          if [ -n "$DEPLOYMENT_URL" ]; then
+            echo "Frontend URL: $DEPLOYMENT_URL"
           fi
           echo "================================================"
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          DEPLOYMENT_URL: ${{ secrets.DEPLOYMENT_URL }}
