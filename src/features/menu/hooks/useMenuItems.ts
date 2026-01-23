@@ -86,10 +86,14 @@ const MENU_ITEM_SEARCH_PATH = "/api/menu/items/search";
 type UseMenuItemsOptions = {
   autoFetch?: boolean;
   initialFetchPath?: string;
+  searchPath?: string;
+  searchMethod?: "GET" | "POST";
+  includeAuth?: boolean;
+  restaurantId?: number;
 };
 
 function buildMenuRequestPayload(payload: MenuItemInput | MenuItemUpdate) {
-  const { available, category, imageUrl, ...rest } = payload as Record<string, unknown>;
+  const { available, category, imageUrl, basePrice, ...rest } = payload as Record<string, unknown>;
   const requestPayload: Record<string, unknown> = { ...rest };
 
   if (typeof available === "boolean") {
@@ -106,6 +110,12 @@ function buildMenuRequestPayload(payload: MenuItemInput | MenuItemUpdate) {
     requestPayload.price = Number.isFinite(parsedPrice) ? parsedPrice : undefined;
   } else if (typeof payload.price === "number") {
     requestPayload.price = Number.isFinite(payload.price) ? payload.price : undefined;
+  }
+  if (typeof basePrice === "string") {
+    const parsedBasePrice = Number(basePrice);
+    requestPayload.base_price = Number.isFinite(parsedBasePrice) ? parsedBasePrice : undefined;
+  } else if (typeof basePrice === "number") {
+    requestPayload.base_price = Number.isFinite(basePrice) ? basePrice : undefined;
   }
 
   return requestPayload;
@@ -207,6 +217,12 @@ function mapMenuItemRecord(record: MenuItemRecord): MenuItem | null {
         record.price_vnd ??
         record.priceValue
     ) ?? 0;
+  const basePrice = readNumber(
+    record.base_price ??
+      record.basePrice ??
+      record.original_price ??
+      record.originalPrice
+  );
   const sku = readString(record.sku ?? record.sku_code ?? record.code) ?? "";
   const topicId = readNumber(
     record.topic_id ?? record.topicId ?? record.menu_topic_id
@@ -238,6 +254,7 @@ function mapMenuItemRecord(record: MenuItemRecord): MenuItem | null {
     description: description || undefined,
     category,
     price,
+    basePrice: basePrice ?? undefined,
     sku: sku || undefined,
     topicId: topicId ?? undefined,
     available,
@@ -365,14 +382,26 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
   const restaurantIdRef = useRef<string | null>(getStoredRestaurantId());
   const autoFetch = options.autoFetch !== false;
   const initialFetchPath = options.initialFetchPath ?? "/api/menu/items";
+  const searchPath = options.searchPath ?? MENU_ITEM_SEARCH_PATH;
+  const searchMethod = options.searchMethod ?? "POST";
+  const includeAuth = options.includeAuth !== false;
+  const restaurantId = options.restaurantId;
 
   const fetchItems = useCallback(async () => {
     setAction("fetch");
     setLoading(true);
     setError(null);
     try {
+      const headers: HeadersInit = {};
+      if (!includeAuth) {
+        headers["x-skip-auth"] = "true";
+      }
+      if (restaurantId !== undefined) {
+        headers["X-Restaurant-Id"] = String(restaurantId);
+      }
       const response = await fetchApiJson<MenuItemsResponse>(initialFetchPath, {
         cache: "no-store",
+        headers,
       });
       const nextItems = extractMenuItems(response) ?? [];
       setItems(nextItems);
@@ -384,7 +413,7 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
       setLoading(false);
       setAction(null);
     }
-  }, [initialFetchPath, t]);
+  }, [initialFetchPath, includeAuth, restaurantId, t]);
 
   const searchItems = useCallback(
     async (params: MenuSearchParams = {}) => {
@@ -410,14 +439,30 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
         payload.page = params.page;
       }
       try {
-        const response = await fetchApiJson<MenuSearchResponse>(
-          MENU_ITEM_SEARCH_PATH,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          }
-        );
+        const apiInit: RequestInit = {
+          method: searchMethod,
+          headers: {
+            "Content-Type": "application/json",
+            ...(includeAuth ? {} : { "x-skip-auth": "true" }),
+            ...(restaurantId !== undefined ? { "X-Restaurant-Id": String(restaurantId) } : {}),
+          },
+        };
+
+        // GET requests should encode search params instead of sending a body
+        let requestPath = searchPath;
+        if (searchMethod === "GET") {
+          const url = new URL(searchPath, globalThis.window?.location?.origin ?? "http://localhost");
+          Object.entries(payload).forEach(([key, value]) => {
+            if (value === undefined || value === null) return;
+            url.searchParams.set(key, String(value));
+          });
+          const isAbsolute = searchPath.startsWith("http://") || searchPath.startsWith("https://");
+          requestPath = isAbsolute ? url.toString() : url.pathname + url.search;
+        } else {
+          apiInit.body = JSON.stringify(payload);
+        }
+
+        const response = await fetchApiJson<MenuSearchResponse>(requestPath, apiInit);
         const responseCode = parseResponseCode(response.response_code);
         if (responseCode !== null && responseCode !== 200) {
           const message =
@@ -452,7 +497,7 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
         setAction(null);
       }
     },
-    [t]
+    [includeAuth, restaurantId, searchMethod, searchPath, t]
   );
 
   const rerunLastQuery = useCallback(async () => {
@@ -565,6 +610,12 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
                 : typeof payload.price === "string" && Number.isFinite(Number(payload.price))
                   ? Number(payload.price)
                   : item.price;
+            const nextBasePrice =
+              typeof (payload as { basePrice?: number | string }).basePrice === "number"
+                ? (payload as { basePrice: number }).basePrice
+                : typeof (payload as { basePrice?: number | string }).basePrice === "string" && Number.isFinite(Number((payload as { basePrice: string }).basePrice))
+                  ? Number((payload as { basePrice: string }).basePrice)
+                  : item.basePrice;
             return {
               ...item,
               ...payload,
@@ -573,6 +624,7 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
               is_active: nextAvailable,
               imageUrl: nextImageUrl,
               price: nextPrice,
+              basePrice: nextBasePrice,
             } as MenuItem;
           })
         );

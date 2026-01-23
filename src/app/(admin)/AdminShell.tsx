@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import {
   AppstoreOutlined,
@@ -23,6 +24,12 @@ import { RestaurantSelectHeader } from "@/features/admin/components/RestaurantSe
 
 const { Sider, Header, Content } = Layout;
 const { Text, Title } = Typography;
+
+// Dynamic import for Three.js component (no SSR)
+const HeaderScene = dynamic(() => import("@/components/layout/HeaderScene"), {
+  ssr: false,
+  loading: () => <div className="header-scene-loading" />,
+});
 
 const navItems = [
   {
@@ -102,8 +109,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         />
       </Sider>
       <Layout>
-        <Header className="admin-header">
-          <Space size="middle">
+        <Header className="admin-header app-header-3d">
+          {/* Three.js Background */}
+          <div className="header-scene-container">
+            <HeaderScene />
+          </div>
+
+          {/* Content */}
+          <Space size="middle" style={{ position: "relative", zIndex: 2 }}>
             <Button
               type="text"
               className="admin-sider-toggle"
@@ -111,9 +124,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               onClick={() => setCollapsed((prev) => !prev)}
               aria-label="Toggle menu"
             />
-            <Text type="secondary">{t("nav.adminSubtitle")}</Text>
+            <Text type="secondary" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}>
+              {t("nav.adminSubtitle")}
+            </Text>
           </Space>
-          <Space size="middle" className="admin-header-actions">
+          <Space size="middle" className="admin-header-actions" style={{ position: "relative", zIndex: 2 }}>
             <RestaurantSelectHeader />
             <Space size="small">
               <BulbOutlined />

@@ -52,6 +52,17 @@ function parseTopics(value: string | null) {
   return { ids: Array.from(ids), keywords };
 }
 
+function readNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function buildProxyUrl(request: NextRequest) {
   const targetUrl = new URL(`${API_BASE_URL}/api/menus`);
   targetUrl.search = new URL(request.url).search;
@@ -63,7 +74,11 @@ export const GET = withApiLogging(async (request: NextRequest) => {
   const t = createTranslator(locale);
   const url = new URL(request.url);
   const typeParam = url.searchParams.get("type");
+  const categoryParam = url.searchParams.get("category");
   const topicsParam = url.searchParams.get("topics") ?? url.searchParams.get("topic");
+  const filterParam = url.searchParams.get("filter") ?? url.searchParams.get("q");
+  const limitParam = url.searchParams.get("limit");
+  const pageParam = url.searchParams.get("page");
   const origin = url.origin;
   const shouldProxy = API_BASE_URL && API_BASE_URL !== origin;
 
@@ -107,10 +122,13 @@ export const GET = withApiLogging(async (request: NextRequest) => {
     }
   }
 
-  const normalizedCategory = normalizeCategory(typeParam);
+  const normalizedCategory = normalizeCategory(categoryParam ?? typeParam);
   const topics = parseTopics(topicsParam);
   const keywords = topics.keywords;
   const topicIds = topics.ids;
+  const filter = typeof filterParam === "string" ? filterParam.trim().toLowerCase() : "";
+  const limit = readNumber(limitParam);
+  const page = readNumber(pageParam);
 
   let items = listMenuItems();
   if (normalizedCategory) {
@@ -127,6 +145,32 @@ export const GET = withApiLogging(async (request: NextRequest) => {
       return keywords.some((keyword) => name.includes(keyword) || description.includes(keyword) || sku.includes(keyword));
     });
   }
+  if (filter) {
+    items = items.filter((item) => {
+      const name = t(item.name).toLowerCase();
+      const description = item.description ? t(item.description).toLowerCase() : "";
+      const sku = item.sku ? item.sku.toLowerCase() : "";
+      return name.includes(filter) || description.includes(filter) || sku.includes(filter);
+    });
+  }
 
-  return NextResponse.json({ items, message: "OK", response_code: 200 });
+  const totalItems = items.length;
+  const safeLimit = limit && limit > 0 ? limit : totalItems > 0 ? totalItems : 1;
+  const pageIndex = page && page > 0 ? page - 1 : 0;
+  const totalPages = safeLimit > 0 ? Math.max(1, Math.ceil(totalItems / safeLimit)) : 1;
+  const start = pageIndex * safeLimit;
+  const pagedItems = items.slice(start, start + safeLimit);
+
+  return NextResponse.json({
+    items: pagedItems,
+    data: {
+      items: pagedItems,
+      limit: safeLimit,
+      page: pageIndex + 1,
+      total_items: totalItems,
+      total_pages: totalPages,
+    },
+    message: "OK",
+    response_code: 200,
+  });
 });

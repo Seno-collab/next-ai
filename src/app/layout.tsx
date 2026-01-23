@@ -29,11 +29,11 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "QR Lynx | AI-Powered Smart Menu Platform",
+    default: "QR Lynx | Restaurant & Hotel Management with AI + QR Security",
     template: "%s | QR Lynx",
   },
-  description: "Next-generation restaurant management with AI-powered QR menus, real-time analytics, and stunning 3D visualizations. Transform your dining experience.",
-  keywords: ["QR menu", "restaurant", "AI", "smart dining", "digital menu", "analytics", "3D dashboard"],
+  description: "Professional restaurant and hotel management platform with AI-powered security, QR menu system, real-time analytics, and 3D holographic dashboards. Built for hospitality excellence.",
+  keywords: ["restaurant management", "hotel management", "QR menu", "AI security", "QR security", "hospitality", "digital menu", "admin dashboard", "3D visualization", "smart dining"],
   authors: [{ name: "QR Lynx Team" }],
   creator: "QR Lynx",
   metadataBase: new URL("https://qrlynx.app"),
@@ -41,13 +41,13 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     siteName: "QR Lynx",
-    title: "QR Lynx | AI-Powered Smart Menu Platform",
-    description: "Next-generation restaurant management with AI-powered QR menus, real-time analytics, and stunning 3D visualizations.",
+    title: "QR Lynx | Restaurant & Hotel Management with AI + QR Security",
+    description: "Professional restaurant and hotel management platform with AI-powered security, QR menu system, and real-time analytics for hospitality excellence.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "QR Lynx | AI-Powered Smart Menu Platform",
-    description: "Transform your dining experience with AI-powered QR menus and real-time analytics.",
+    title: "QR Lynx | Restaurant & Hotel Management Platform",
+    description: "AI + QR Security for modern restaurant and hotel operations with holographic dashboards.",
   },
   robots: {
     index: true,

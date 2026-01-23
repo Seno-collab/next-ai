@@ -4,6 +4,7 @@ export type MenuItem = {
   description?: string;
   category: string;
   price: number;
+  basePrice?: number;
   sku?: string;
   topicId?: number | null;
   available: boolean;
@@ -18,6 +19,7 @@ export type MenuItemInput = {
   description?: string;
   category: string;
   price: number;
+  basePrice?: number;
   sku?: string;
   topicId?: number | null;
   available?: boolean;

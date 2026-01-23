@@ -70,39 +70,39 @@ export default function LoginPage() {
 
                 <div className="auth-welcome">
                   <div className="auth-welcome-badge">
-                    <LockOutlined /> {t("login.eyebrow") || "Secure Access"}
+                    <LockOutlined /> {t("login.eyebrow")}
                   </div>
                   <Title level={2} className="auth-welcome-title">
-                    {t("login.title") || "Welcome Back"}
+                    {t("login.title")}
                   </Title>
                   <Paragraph className="auth-welcome-subtitle">
-                    {t("login.subtitle") || "Sign in to access your dashboard"}
+                    {t("login.subtitle")}
                   </Paragraph>
                 </div>
 
                 <Form form={form} layout="vertical" onFinish={handleSubmit} className="auth-form">
                   <Form.Item
-                    label={t("auth.emailLabel") || "Email"}
+                    label={t("auth.emailLabel")}
                     name="email"
-                    rules={[{ required: true, message: t("auth.emailRequired") || "Please enter your email" }]}
+                    rules={[{ required: true, message: t("auth.emailRequired") }]}
                   >
                     <Input
                       type="email"
                       autoComplete="email"
                       prefix={<UserOutlined />}
-                      placeholder="you@example.com"
+                      placeholder="admin@restaurant.com"
                       size="large"
                     />
                   </Form.Item>
                   <Form.Item
-                    label={t("auth.passwordLabel") || "Password"}
+                    label={t("auth.passwordLabel")}
                     name="password"
-                    rules={[{ required: true, message: t("auth.passwordRequired") || "Please enter your password" }]}
+                    rules={[{ required: true, message: t("auth.passwordRequired") }]}
                   >
                     <Input.Password
                       autoComplete="current-password"
                       prefix={<LockOutlined />}
-                      placeholder="Enter your password"
+                      placeholder={t("auth.passwordLabel")}
                       size="large"
                     />
                   </Form.Item>
@@ -114,12 +114,12 @@ export default function LoginPage() {
                     className="auth-submit-btn"
                     block
                   >
-                    {loadingAction === "login" ? "Signing in..." : t("login.cta") || "Sign In"}
+                    {t("login.cta")}
                   </Button>
                 </Form>
 
                 <Text type="secondary" className="auth-hint">
-                  {t("login.secondaryHint") || "Enter your credentials to continue"}
+                  {t("login.secondaryHint")}
                 </Text>
 
                 {success && <Alert title={success} type="success" showIcon />}
@@ -137,24 +137,24 @@ export default function LoginPage() {
           <div className="auth-visual-panel">
             <div className="auth-visual-content">
               <div className="portal-info">
-                <div className="portal-badge">Enter the Portal</div>
-                <h3 className="portal-title">{t("login.tagline") || "AI-Powered Access"}</h3>
+                <div className="portal-badge">{t("login.eyebrow")}</div>
+                <h3 className="portal-title">{t("login.tagline")}</h3>
                 <p className="portal-description">
-                  {t("login.visualCaption") || "Step through the gateway to your personalized dashboard experience"}
+                  {t("login.visualCaption")}
                 </p>
               </div>
               <div className="portal-stats">
                 <div className="portal-stat">
-                  <span className="portal-stat-value">256-bit</span>
-                  <span className="portal-stat-label">Encryption</span>
-                </div>
-                <div className="portal-stat">
-                  <span className="portal-stat-value">99.9%</span>
-                  <span className="portal-stat-label">Uptime</span>
-                </div>
-                <div className="portal-stat">
-                  <span className="portal-stat-value">2FA</span>
+                  <span className="portal-stat-value">AI</span>
                   <span className="portal-stat-label">Security</span>
+                </div>
+                <div className="portal-stat">
+                  <span className="portal-stat-value">QR</span>
+                  <span className="portal-stat-label">Auth</span>
+                </div>
+                <div className="portal-stat">
+                  <span className="portal-stat-value">3D</span>
+                  <span className="portal-stat-label">Hologram</span>
                 </div>
               </div>
             </div>
@@ -185,8 +185,8 @@ function AuthBrand() {
         </svg>
       </div>
       <div className="auth-brand-text">
-        <div className="auth-brand-name">QR MENU</div>
-        <div className="auth-brand-tagline">{t("login.tagline") || "Smart Dining"}</div>
+        <div className="auth-brand-name">{t("site.name") || "QR LYNX"}</div>
+        <div className="auth-brand-tagline">{t("login.tagline")}</div>
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ import {
 } from "antd";
 import { Playfair_Display, Space_Grotesk } from "next/font/google";
 import Image from "next/image";
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 // Dynamic import for Three.js component (no SSR)
 const PublicMenuScene = dynamic(
@@ -50,7 +50,14 @@ const accentMap: Record<string, string> = {
 };
 
 export default function MenuPage() {
-  const { items } = useMenuItems({ initialFetchPath: "/api/menus?type=extra&topics=nam-moi" });
+  const { items: hookItems, loading: hookLoading, searchItems, searchMeta } = useMenuItems({
+    initialFetchPath: "/api/menus",
+    searchPath: "/api/menus",
+    searchMethod: "GET",
+    includeAuth: false,
+    autoFetch: false,
+    restaurantId: 9
+  });
   const { t, locale, setLocale } = useLocale();
   const { isDark, setMode } = useTheme();
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -60,13 +67,129 @@ export default function MenuPage() {
   const [zoomedItem, setZoomedItem] = useState<MenuItem | null>(null);
   const burstRef = useRef<OrderBurstHandle>(null);
 
+  // Infinite scroll state
+  const [allItems, setAllItems] = useState<MenuItem[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const ITEMS_PER_PAGE = 20;
+
   const formatter = new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-US", {
     style: "currency",
     currency: "VND",
     maximumFractionDigits: 0,
   });
 
-  const availableItems = useMemo(() => items.filter((item) => item.available), [items]);
+  // Load initial items
+  useEffect(() => {
+    const loadInitialItems = async () => {
+      setCurrentPage(1);
+      setAllItems([]);
+      await searchItems({ limit: ITEMS_PER_PAGE, page: 1 });
+    };
+    loadInitialItems();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update allItems when hookItems change
+  useEffect(() => {
+    if (hookItems.length > 0) {
+      if (currentPage === 1) {
+        setAllItems(hookItems);
+      } else {
+        setAllItems((prev) => {
+          const newItems = hookItems.filter(
+            (item: MenuItem) => !prev.some((p) => p.id === item.id)
+          );
+          return [...prev, ...newItems];
+        });
+      }
+      setIsLoadingMore(false);
+    }
+  }, [hookItems, currentPage]);
+
+  // Update hasMore based on searchMeta
+  useEffect(() => {
+    if (searchMeta) {
+      const { page, totalPages } = searchMeta;
+      if (page !== null && totalPages !== null) {
+        setHasMore(page < totalPages);
+      }
+    }
+  }, [searchMeta]);
+
+  // Load more function
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore || hookLoading) return;
+
+    setIsLoadingMore(true);
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    await searchItems({
+      limit: ITEMS_PER_PAGE,
+      page: nextPage,
+      filter: searchTerm || undefined,
+      category: activeCategory === "all" ? undefined : activeCategory,
+    });
+  }, [activeCategory, currentPage, hasMore, hookLoading, isLoadingMore, searchItems, searchTerm, ITEMS_PER_PAGE]);
+
+  // Reset when category changes
+  useEffect(() => {
+    const resetAndReload = async () => {
+      setCurrentPage(1);
+      setAllItems([]);
+      setHasMore(true);
+      await searchItems({
+        limit: ITEMS_PER_PAGE,
+        page: 1,
+        category: activeCategory === "all" ? undefined : activeCategory,
+      });
+    };
+    resetAndReload();
+  }, [activeCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset when search term changes (with debounce)
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      setCurrentPage(1);
+      setAllItems([]);
+      setHasMore(true);
+      await searchItems({
+        limit: ITEMS_PER_PAGE,
+        page: 1,
+        filter: searchTerm || undefined,
+        category: activeCategory === "all" ? undefined : activeCategory,
+      });
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first && first.isIntersecting && hasMore && !isLoadingMore && !hookLoading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasMore, isLoadingMore, hookLoading, loadMore]);
+
+  const availableItems = useMemo(() => allItems.filter((item) => item.available), [allItems]);
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const nameCollator = useMemo(() => new Intl.Collator(locale === "vi" ? "vi-VN" : "en-US"), [locale]);
 
@@ -309,9 +432,22 @@ export default function MenuPage() {
                       {spotlightItem.description && (
                         <Text type="secondary">{t(spotlightItem.description)}</Text>
                       )}
-                      <Text className="menu-spotlight-price">
-                        {formatter.format(spotlightItem.price)}
-                      </Text>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        {spotlightItem.basePrice && spotlightItem.basePrice > spotlightItem.price ? (
+                          <>
+                            <Text delete type="secondary" style={{ fontSize: "14px" }}>
+                              {formatter.format(spotlightItem.basePrice)}
+                            </Text>
+                            <Text className="menu-spotlight-price" style={{ color: "#ef4444" }}>
+                              {formatter.format(spotlightItem.price)}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text className="menu-spotlight-price">
+                            {formatter.format(spotlightItem.price)}
+                          </Text>
+                        )}
+                      </div>
                     </Space>
                   ) : (
                     <Text type="secondary">{t("menu.spotlightEmpty")}</Text>
@@ -360,7 +496,16 @@ export default function MenuPage() {
                     >
                       <div className="menu-special-top">
                         <Tag className="menu-special-badge">{t(badgeKey)}</Tag>
-                        <Text className="menu-special-price">{formatter.format(item.price)}</Text>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+                          {item.basePrice && item.basePrice > item.price && (
+                            <Text delete type="secondary" style={{ fontSize: "12px" }}>
+                              {formatter.format(item.basePrice)}
+                            </Text>
+                          )}
+                          <Text className="menu-special-price" style={item.basePrice && item.basePrice > item.price ? { color: "#ef4444" } : undefined}>
+                            {formatter.format(item.price)}
+                          </Text>
+                        </div>
                       </div>
                       {imageUrl ? (
                         <button
@@ -490,7 +635,16 @@ export default function MenuPage() {
                   )}
                   <div className="menu-card-header">
                     <Tag className="menu-category-tag">{categoryLabel(item.category)}</Tag>
-                    <Text className="menu-price">{formatter.format(item.price)}</Text>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+                      {item.basePrice && item.basePrice > item.price && (
+                        <Text delete type="secondary" style={{ fontSize: "12px" }}>
+                          {formatter.format(item.basePrice)}
+                        </Text>
+                      )}
+                      <Text className="menu-price" style={item.basePrice && item.basePrice > item.price ? { color: "#ef4444" } : undefined}>
+                        {formatter.format(item.price)}
+                      </Text>
+                    </div>
                   </div>
                   <Text className="menu-card-title">{t(item.name)}</Text>
                   {item.description && (
@@ -510,7 +664,7 @@ export default function MenuPage() {
               </Col>
             );
           })}
-          {filteredItems.length === 0 && (
+          {filteredItems.length === 0 && !hookLoading && (
             <Col span={24}>
               <Card variant="borderless" className="menu-empty glass-card">
                 <Text type="secondary">{t("menu.empty")}</Text>
@@ -518,6 +672,24 @@ export default function MenuPage() {
             </Col>
           )}
         </Row>
+
+        {/* Infinite scroll sentinel */}
+        {hasMore && (
+          <div ref={loadMoreRef} style={{ height: "20px", margin: "20px 0" }}>
+            {isLoadingMore && (
+              <div style={{ textAlign: "center" }}>
+                <Spin size="large" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Loading initial items */}
+        {hookLoading && currentPage === 1 && (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <Spin size="large" />
+          </div>
+        )}
       </Space>
       <Modal
         open={Boolean(zoomedImageUrl)}
@@ -544,7 +716,20 @@ export default function MenuPage() {
                   {t(zoomedItem.description)}
                 </Text>
               )}
-              <Text className="menu-zoom-price">{formatter.format(zoomedItem.price)}</Text>
+              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                {zoomedItem.basePrice && zoomedItem.basePrice > zoomedItem.price ? (
+                  <>
+                    <Text delete type="secondary" style={{ fontSize: "16px" }}>
+                      {formatter.format(zoomedItem.basePrice)}
+                    </Text>
+                    <Text className="menu-zoom-price" style={{ color: "#ef4444" }}>
+                      {formatter.format(zoomedItem.price)}
+                    </Text>
+                  </>
+                ) : (
+                  <Text className="menu-zoom-price">{formatter.format(zoomedItem.price)}</Text>
+                )}
+              </div>
             </div>
           </div>
         ) : null}

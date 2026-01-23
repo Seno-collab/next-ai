@@ -241,8 +241,20 @@ function extractStoredTokens(payload: unknown): StoredAuthTokens | null {
   return null;
 }
 
-function withAuthHeader(init: RequestInit | undefined, accessToken: string) {
+function shouldSkipAuth(init?: RequestInit) {
   const headers = new Headers(init?.headers);
+  const value = headers.get("x-skip-auth");
+  return value === "true" || value === "1" || value === "yes";
+}
+
+function withAuthHeader(init: RequestInit | undefined, accessToken: string) {
+  if (shouldSkipAuth(init)) {
+    const headers = new Headers(init?.headers);
+    headers.delete("x-skip-auth");
+    return { ...init, headers };
+  }
+  const headers = new Headers(init?.headers);
+  headers.delete("x-skip-auth");
   headers.set("authorization", `Bearer ${accessToken}`);
   return { ...init, headers };
 }
@@ -252,18 +264,22 @@ function withLocaleHeader(init?: RequestInit) {
     return init;
   }
   const headers = new Headers(init?.headers);
+  const skipAuth = shouldSkipAuth(init);
+  headers.delete("x-skip-auth");
   const storedLocale =
     globalThis.window.localStorage.getItem(LOCALE_STORAGE_KEY);
   if (storedLocale === "vi" || storedLocale === "en") {
     headers.set("x-locale", storedLocale);
   }
-  const tokens = getStoredAuthTokens();
-  if (tokens?.accessToken && !headers.has("authorization")) {
-    headers.set("authorization", `Bearer ${tokens.accessToken}`);
-  }
-  const restaurantId = getStoredRestaurantId();
-  if (restaurantId && !headers.has(RESTAURANT_HEADER_NAME)) {
-    headers.set(RESTAURANT_HEADER_NAME, restaurantId);
+  if (!skipAuth) {
+    const tokens = getStoredAuthTokens();
+    if (tokens?.accessToken && !headers.has("authorization")) {
+      headers.set("authorization", `Bearer ${tokens.accessToken}`);
+    }
+    const restaurantId = getStoredRestaurantId();
+    if (restaurantId && !headers.has(RESTAURANT_HEADER_NAME)) {
+      headers.set(RESTAURANT_HEADER_NAME, restaurantId);
+    }
   }
   return { ...init, headers };
 }
@@ -494,6 +510,7 @@ export async function fetchJson<T>(
   input: RequestInfo | URL,
   init?: RequestInit
 ) {
+  const skipAuth = shouldSkipAuth(init);
   const shouldLog = process.env.NODE_ENV === "development";
   const method = shouldLog ? resolveRequestMethod(input, init) : "GET";
   const url = shouldLog ? formatRequestUrl(input) : "";
@@ -501,7 +518,9 @@ export async function fetchJson<T>(
   if (shouldLog) {
     console.info(`${logPrefix} ${method} ${url} -> start`);
   }
-  await refreshIfTokenExpired(input);
+  if (!skipAuth) {
+    await refreshIfTokenExpired(input);
+  }
   let response: Response;
   try {
     response = await fetch(input, withLocaleHeader(init));
@@ -529,7 +548,8 @@ export async function fetchJson<T>(
       isBrowser &&
       (response.status === 401 || response.status === 403) &&
       !isRefreshRequest(input) &&
-      Boolean(getStoredAuthTokens()?.refreshToken);
+      Boolean(getStoredAuthTokens()?.refreshToken) &&
+      !skipAuth;
     if (canRefresh) {
       const refreshed = await refreshAuthTokens();
       if (refreshed?.accessToken) {

@@ -7728,3 +7728,344 @@ body {
     align-items: flex-start;
   }
 }
+
+/* ========================================
+   HEADER SCENE - Three.js Background
+   ======================================== */
+
+.app-header-3d {
+  position: relative;
+  overflow: hidden !important;
+}
+
+.header-scene-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.header-scene {
+  width: 100%;
+  height: 100%;
+}
+
+.header-scene canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.header-scene-loading {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 30% 50%, rgba(56, 189, 248, 0.1), transparent 60%),
+              radial-gradient(circle at 70% 50%, rgba(16, 185, 129, 0.08), transparent 60%);
+  animation: headerPulse 2s ease-in-out infinite;
+}
+
+@keyframes headerPulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Header content enhanced with shadows */
+.app-header-3d .ant-typography {
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.app-header-3d .ant-segmented,
+.app-header-3d .ant-btn {
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .header-scene-container {
+    opacity: 0.6;
+  }
+}
+
+/* Admin header with Three.js */
+.admin-header.app-header-3d {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.admin-header .ant-typography {
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.admin-header .ant-segmented,
+.admin-header .ant-switch,
+.admin-header .ant-btn {
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   PUBLIC MENU 3D HEADER - WOW Effects
+   ======================================== */
+
+.public-menu-3d-header {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 15, 0.95) 0%,
+    rgba(15, 23, 42, 0.85) 50%,
+    rgba(2, 8, 23, 0.95) 100%
+  );
+}
+
+.public-menu-stage {
+  width: 100%;
+  height: 100%;
+  cursor: move;
+}
+
+.public-menu-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.public-menu-header-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+}
+
+.public-menu-header-content {
+  text-align: center;
+  padding: 32px;
+  z-index: 10;
+  animation: fadeInScale 1.2s ease-out;
+}
+
+.public-menu-header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 24px;
+  color: #fbbf24;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  backdrop-filter: blur(12px);
+  box-shadow: 
+    0 0 20px rgba(251, 191, 36, 0.3),
+    inset 0 0 20px rgba(251, 191, 36, 0.1);
+  animation: badgePulse 3s ease-in-out infinite;
+  margin-bottom: 16px;
+}
+
+.public-menu-header-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  background: linear-gradient(
+    135deg,
+    #fbbf24 0%,
+    #f97316 50%,
+    #0ea5e9 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 16px 0;
+  text-shadow: 0 0 40px rgba(251, 191, 36, 0.4);
+  animation: titleShimmer 4s ease-in-out infinite;
+}
+
+.public-menu-header-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 400;
+  margin: 0;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(251, 191, 36, 0.3),
+      inset 0 0 20px rgba(251, 191, 36, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(251, 191, 36, 0.5),
+      inset 0 0 25px rgba(251, 191, 36, 0.15);
+  }
+}
+
+@keyframes titleShimmer {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Loading state for menu scene */
+.public-menu-scene-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+    circle at center,
+    rgba(14, 165, 233, 0.1) 0%,
+    rgba(251, 191, 36, 0.05) 50%,
+    transparent 100%
+  );
+  animation: sceneLoading 2s ease-in-out infinite;
+}
+
+@keyframes sceneLoading {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .public-menu-3d-header {
+    height: 300px;
+  }
+
+  .public-menu-header-title {
+    font-size: 2.5rem;
+  }
+
+  .public-menu-header-subtitle {
+    font-size: 1rem;
+  }
+
+  .public-menu-header-badge {
+    font-size: 0.75rem;
+    padding: 6px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-menu-3d-header {
+    height: 250px;
+  }
+
+  .public-menu-header-title {
+    font-size: 2rem;
+  }
+
+  .public-menu-header-subtitle {
+    font-size: 0.875rem;
+  }
+}
+
+/* Enhanced glass card for menu items */
+.menu-shell .glass-card {
+  backdrop-filter: blur(16px) saturate(180%);
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-shell .glass-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(251, 191, 36, 0.4);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.5),
+    0 0 32px rgba(251, 191, 36, 0.15),
+    0 0 0 1px rgba(251, 191, 36, 0.2) inset;
+}
+
+/* ========================================
+   PERFORMANCE OPTIMIZATIONS
+   ======================================== */
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .header-scene,
+  .public-menu-stage,
+  .public-menu-3d-header,
+  .auth-3d-bg {
+    animation: none !important;
+  }
+
+  .public-menu-header-badge,
+  .public-menu-header-title {
+    animation: none !important;
+  }
+
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* GPU acceleration hints for 3D scenes */
+.header-scene canvas,
+.public-menu-stage canvas {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Optimize for low-end devices */
+@media (max-width: 480px) {
+  .public-menu-3d-header {
+    height: 250px;
+  }
+
+  /* Simplify gradients on small screens */
+  .public-menu-header-overlay {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}
