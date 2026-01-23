@@ -281,7 +281,7 @@ function withLocaleHeader(init?: RequestInit) {
       headers.set(RESTAURANT_HEADER_NAME, restaurantId);
     }
   }
-  return { ...init, headers, credentials: "include" as RequestCredentials };
+  return { ...init, headers, credentials: "same-origin" as RequestCredentials };
 }
 
 function resolveRequestUrl(input: RequestInfo | URL): string {
@@ -413,7 +413,7 @@ async function expireSession() {
     setStoredAuthTokens(null);
     try {
       const initWithLocale = withLocaleHeader({ method: "POST" });
-      await fetch(AUTH_LOGOUT_PATH, { ...initWithLocale, credentials: "include" });
+      await fetch(AUTH_LOGOUT_PATH, initWithLocale);
     } catch {
       // Ignore network errors; local session is already cleared.
     }
@@ -544,6 +544,22 @@ export async function fetchJson<T>(
   }
 
   if (!response.ok) {
+    // Redirect to 500 page for server errors
+    if (isBrowser && response.status >= 500) {
+      const message = await getErrorMessage(response);
+      // Store error info for the error page
+      sessionStorage.setItem("api_error", JSON.stringify({
+        status: response.status,
+        message,
+        url: formatRequestUrl(input),
+        timestamp: Date.now(),
+      }));
+      // Redirect to error page
+      globalThis.window.location.href = "/error-500";
+      // Throw to stop execution
+      throw new Error(message);
+    }
+
     const canRefresh =
       isBrowser &&
       (response.status === 401 || response.status === 403) &&
@@ -554,10 +570,7 @@ export async function fetchJson<T>(
       const refreshed = await refreshAuthTokens();
       if (refreshed?.accessToken) {
         const retryInit = withLocaleHeader(withAuthHeader(init, refreshed.accessToken));
-        const retryResponse = await fetch(input, {
-          ...retryInit,
-          credentials: "include",
-        });
+        const retryResponse = await fetch(input, retryInit);
         if (retryResponse.ok) {
           return (await retryResponse.json()) as T;
         }
