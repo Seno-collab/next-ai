@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
         hostname: "157.66.218.138",
         port: "8080",
       },
+      {
+        protocol: "http",
+        hostname: "157.66.218.138",
+        port: "9000",
+      },
     ],
   },
 };
