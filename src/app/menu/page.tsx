@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { MenuItemPreview3D } from "@/features/menu/components/MenuItemPreview3D";
 import { OrderBurstCanvas, type OrderBurstHandle } from "@/features/menu/components/OrderBurstCanvas";
 import { menuCategories } from "@/features/menu/constants";
 import { useMenuItems } from "@/features/menu/hooks/useMenuItems";
@@ -29,11 +28,6 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 // Dynamic import for Three.js components (no SSR)
-const PublicMenuScene = dynamic(
-  () => import("@/features/menu/components/PublicMenuScene"),
-  { ssr: false, loading: () => <div className="public-menu-scene-loading"><Spin size="large" /></div> }
-);
-
 const MenuShowcaseScene = dynamic(
   () => import("@/features/menu/components/MenuShowcaseScene"),
   { ssr: false, loading: () => <div className="menu-showcase-scene-loading"><Spin size="large" /></div> }
@@ -105,8 +99,10 @@ export default function MenuPage() {
   useEffect(() => {
     if (hookItems.length > 0) {
       if (currentPage === 1) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- merge freshly fetched first page into local cache
         setAllItems(hookItems);
       } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- append next page results to local cache
         setAllItems((prev) => {
           const newItems = hookItems.filter(
             (item: MenuItem) => !prev.some((p) => p.id === item.id)
@@ -122,11 +118,13 @@ export default function MenuPage() {
   useEffect(() => {
     if (searchMeta) {
       if (typeof searchMeta.hasMore === "boolean") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- derive local flag from server meta
         setHasMore(searchMeta.hasMore);
         return;
       }
       const { page, totalPages } = searchMeta;
       if (page !== null && totalPages !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- derive local flag from server meta
         setHasMore(page < totalPages);
       }
     }
@@ -303,8 +301,6 @@ export default function MenuPage() {
       event.preventDefault();
       setSelectedItemId(item.id);
     };
-
-  const spotlightItem = activeSelectedItem;
 
   const categoryLabel = (value: string) => {
     const category = menuCategories.find((item) => item.value === value);
