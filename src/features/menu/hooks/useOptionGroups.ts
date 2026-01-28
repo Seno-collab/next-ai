@@ -6,27 +6,15 @@ import type {
   OptionGroupUpdate,
 } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
-import { fetchApiJson, notifyError, notifySuccess } from "@/lib/api/client";
+import { fetchApiJson, notifySuccess } from "@/lib/api/client";
 import { useCallback, useState } from "react";
 
 type OptionGroupsResponse = { groups: OptionGroup[] };
 type OptionGroupActionResponse = {
   message?: string;
-  response_code?: string | number;
 };
 
 type OptionGroupAction = "fetch" | "create" | "update" | "delete";
-
-function parseResponseCode(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
 
 export function useOptionGroups() {
   const { t } = useLocale();
@@ -36,16 +24,7 @@ export function useOptionGroups() {
   const [error, setError] = useState<string | null>(null);
 
   const handleActionResponse = useCallback(
-    (response: OptionGroupActionResponse, fallbackMessage: string) => {
-      const responseCode = parseResponseCode(response.response_code);
-      if (responseCode !== null && responseCode !== 200) {
-        const message =
-          typeof response.message === "string"
-            ? response.message
-            : fallbackMessage;
-        notifyError(message);
-        throw new Error(message);
-      }
+    (response: OptionGroupActionResponse) => {
       if (typeof response.message === "string") {
         notifySuccess(response.message);
       }
@@ -91,7 +70,7 @@ export function useOptionGroups() {
             body: JSON.stringify(payload),
           }
         );
-        handleActionResponse(response, t("variants.errors.createGroupFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message =
           err instanceof Error
@@ -119,7 +98,7 @@ export function useOptionGroups() {
             body: JSON.stringify(payload),
           }
         );
-        handleActionResponse(response, t("variants.errors.updateGroupFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message =
           err instanceof Error
@@ -145,7 +124,7 @@ export function useOptionGroups() {
             method: "DELETE",
           }
         );
-        handleActionResponse(response, t("variants.errors.deleteGroupFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message =
           err instanceof Error

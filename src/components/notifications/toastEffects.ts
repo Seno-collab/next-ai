@@ -53,11 +53,12 @@ export function createSuccessEffect(): ToastEffect {
   }
 
   const animate = (time: number, delta: number) => {
+    const frameScale = Math.max(delta, 0.016) * 60; // normalize to ~60fps
     const posArray = geometry.attributes.position.array as Float32Array;
 
     for (let i = 0; i < particleCount; i++) {
       // Drift upward
-      posArray[i * 3 + 1] += speeds[i];
+      posArray[i * 3 + 1] += speeds[i] * frameScale;
 
       // Reset when particle goes too high
       if (posArray[i * 3 + 1] > 1.5) {
@@ -65,7 +66,7 @@ export function createSuccessEffect(): ToastEffect {
       }
 
       // Gentle horizontal drift
-      posArray[i * 3] += Math.sin(time + i) * 0.002;
+      posArray[i * 3] += Math.sin(time + i) * 0.002 * frameScale;
     }
 
     geometry.attributes.position.needsUpdate = true;
@@ -99,11 +100,11 @@ export function createErrorEffect(): ToastEffect {
   const plane = new THREE.Mesh(geometry, material);
   group.add(plane);
 
-  let baseOpacity = 0.15;
+  const baseOpacity = 0.15;
 
   const animate = (time: number, delta: number) => {
     // Gentle pulsing
-    const pulse = Math.sin(time * 0.8) * 0.1;
+    const pulse = Math.sin((time + delta) * 0.8) * 0.1;
     material.opacity = baseOpacity + pulse;
   };
 
@@ -149,7 +150,7 @@ export function createWarningEffect(): ToastEffect {
 
   const animate = (time: number, delta: number) => {
     // Gentle oscillation
-    const shimmer = Math.sin(time * 1.2) * 0.15;
+    const shimmer = Math.sin((time + delta) * 1.2) * 0.15;
     lineMaterial.opacity = 0.25 + shimmer;
     glowMaterial.opacity = 0.08 + shimmer * 0.5;
   };

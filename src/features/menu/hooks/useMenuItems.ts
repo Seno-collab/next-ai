@@ -10,22 +10,19 @@ import {
   RESTAURANT_ID_CHANGE_EVENT,
   fetchApiJson,
   getStoredRestaurantId,
-  notifyError,
   notifySuccess,
 } from "@/lib/api/client";
-import { normalizeCategory, parseResponseCode } from "@/lib/menu/utils";
+import { normalizeCategory } from "@/lib/menu/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type MenuItemsResponse = {
   items?: unknown[];
   data?: unknown;
   message?: string;
-  response_code?: string | number;
 };
 
 type MenuActionResponse = {
   message?: string;
-  response_code?: string | number;
 };
 
 type MenuItemResponse = { item: MenuItem } & MenuActionResponse;
@@ -79,7 +76,6 @@ type MenuSearchResponse = {
     data?: unknown;
   } | null;
   message?: string;
-  response_code?: string | number;
 };
 
 type MenuSearchMeta = {
@@ -370,15 +366,7 @@ function extractMenuSearchItems(payload: MenuSearchResponse) {
 
 function handleMenuActionResponse(
   response: MenuActionResponse,
-  fallbackMessage: string
 ) {
-  const responseCode = parseResponseCode(response.response_code);
-  if (responseCode !== null && responseCode !== 200) {
-    const message =
-      typeof response.message === "string" ? response.message : fallbackMessage;
-    notifyError(message);
-    throw new Error(message);
-  }
   if (typeof response.message === "string") {
     notifySuccess(response.message);
   }
@@ -490,16 +478,6 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
         }
 
         const response = await fetchApiJson<MenuSearchResponse>(requestPath, apiInit);
-        const responseCode = parseResponseCode(response.response_code);
-        if (responseCode !== null && responseCode !== 200) {
-          const message =
-            typeof response.message === "string"
-              ? response.message
-              : t("menu.errors.loadFailed");
-          notifyError(message);
-          setError(message);
-          return;
-        }
         const nextItems = extractMenuSearchItems(response);
         setItems(nextItems);
         const dataRecord = readRecord(response.data);
@@ -552,7 +530,7 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(buildMenuRequestPayload(payload)),
         });
-        handleMenuActionResponse(response, t("menu.errors.createFailed"));
+        handleMenuActionResponse(response);
         const newItem = resolveMenuItemFromResponse(response);
         let refreshed = false;
         try {
@@ -604,7 +582,7 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
             body: JSON.stringify(buildMenuRequestPayload(payload)),
           }
         );
-        handleMenuActionResponse(response, t("menu.errors.updateFailed"));
+        handleMenuActionResponse(response);
         const updatedItem = resolveMenuItemFromResponse(response);
         if (updatedItem) {
           setItems((prev) =>
@@ -690,7 +668,7 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
             method: "DELETE",
           }
         );
-        handleMenuActionResponse(response, t("menu.errors.deleteFailed"));
+        handleMenuActionResponse(response);
         setItems((prev) => prev.filter((item) => item.id !== id));
         await rerunLastQuery();
       } catch (err) {
@@ -721,8 +699,7 @@ export function useMenuItems(options: UseMenuItemsOptions = {}) {
           }
         );
         handleMenuActionResponse(
-          response,
-          t("menu.errors.updateStatusFailed")
+          response
         );
         const updatedItem =
           response.item ??

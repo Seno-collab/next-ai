@@ -44,7 +44,7 @@ import type { MenuItem } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
 import { useHasHydrated } from "@/hooks/useHasHydrated";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 // Dynamic import for Three.js components (no SSR)
 const MenuHeroScene = dynamic(

@@ -415,13 +415,11 @@ export default function MenuShowcaseScene() {
 
     // === MOUSE INTERACTION ===
     let mouseX = 0;
-    let mouseY = 0;
     let scrollY = 0;
 
     const handleMouseMove = (event: MouseEvent) => {
       const rect = mountEl.getBoundingClientRect();
       mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     };
 
     const handleScroll = () => {

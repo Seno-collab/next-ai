@@ -7,7 +7,6 @@ import type { ToastType, TrackedToast } from "./types";
 
 const FADE_IN_DURATION = 200; // ms
 const FADE_OUT_DURATION = 400; // ms
-const TOAST_DURATION = 4000; // ms (matches autoClose)
 
 export function HolographicToastContainer() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -93,8 +92,7 @@ export function HolographicToastContainer() {
      * Convert DOM position to 3D world position
      */
     const domToWorld = (
-      rect: DOMRect,
-      camera: THREE.OrthographicCamera
+      rect: DOMRect
     ): THREE.Vector3 => {
       const x = ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1;
       const y = -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1;
@@ -110,7 +108,7 @@ export function HolographicToastContainer() {
      */
     const updateEffectPosition = (toast: TrackedToast) => {
       const rect = toast.element.getBoundingClientRect();
-      const worldPos = domToWorld(rect, camera);
+      const worldPos = domToWorld(rect);
       toast.effect.group.position.copy(worldPos);
     };
 

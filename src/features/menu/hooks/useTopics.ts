@@ -2,7 +2,7 @@
 
 import type { Topic, TopicInput, TopicUpdate } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
-import { fetchApiJson, notifyError, notifySuccess } from "@/lib/api/client";
+import { fetchApiJson, notifySuccess } from "@/lib/api/client";
 import { useCallback, useEffect, useState } from "react";
 
 type TopicsResponse = {
@@ -17,7 +17,6 @@ type TopicsResponse = {
 };
 type TopicActionResponse = {
   message?: string;
-  response_code?: string | number;
 };
 type TopicQueryParams = {
   name?: string;
@@ -26,17 +25,6 @@ type TopicQueryParams = {
 };
 
 type TopicAction = "fetch" | "create" | "update" | "delete";
-
-function parseResponseCode(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
 
 function buildTopicsQuery(params?: TopicQueryParams) {
   const searchParams = new URLSearchParams();
@@ -92,18 +80,8 @@ export function useTopics() {
   const [error, setError] = useState<string | null>(null);
 
   const handleActionResponse = useCallback(
-    (response: TopicActionResponse, fallbackMessage: string) => {
-      const rawResponseCode = response.response_code;
-      const responseCode = parseResponseCode(rawResponseCode);
-      if (responseCode !== null && responseCode !== 200) {
-        const message =
-          typeof response.message === "string"
-            ? response.message
-            : fallbackMessage;
-        notifyError(message);
-        throw new Error(message);
-      }
-      if (rawResponseCode === "200" && typeof response.message === "string") {
+    (response: TopicActionResponse) => {
+      if (typeof response.message === "string") {
         notifySuccess(response.message);
       }
     },
@@ -146,7 +124,7 @@ export function useTopics() {
             body: JSON.stringify(payload),
           }
         );
-        handleActionResponse(response, t("topics.errors.createFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message = resolveTopicErrorMessage(
           err,
@@ -174,7 +152,7 @@ export function useTopics() {
             body: JSON.stringify(payload),
           }
         );
-        handleActionResponse(response, t("topics.errors.updateFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message = resolveTopicErrorMessage(
           err,
@@ -198,7 +176,7 @@ export function useTopics() {
           `/menu/topics/${id}`,
           { method: "DELETE" }
         );
-        handleActionResponse(response, t("topics.errors.deleteFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message = resolveTopicErrorMessage(
           err,

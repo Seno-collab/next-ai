@@ -78,12 +78,14 @@ export const GET = withApiLogging(async (request: NextRequest) => {
           ? t(data.message)
           : response.statusText || t("topics.errors.loadFailed");
       return NextResponse.json(
-        { message, response_code: responseCode ?? response.status },
+        { message },
         { status }
       );
     }
 
-    return NextResponse.json(data);
+    const sanitized = { ...data };
+    delete (sanitized as Record<string, unknown>).response_code;
+    return NextResponse.json(sanitized);
   } catch (error) {
     return NextResponse.json(
       {

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useLocale } from "@/hooks/useLocale";
 import { Button, Space, Spin, Typography } from "antd";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -24,21 +24,22 @@ type ApiError = {
 export default function Error500Page() {
   const { t } = useLocale();
   const router = useRouter();
-  const [errorInfo, setErrorInfo] = useState<ApiError | null>(null);
-
-  useEffect(() => {
-    // Get error info from sessionStorage
-    const stored = sessionStorage.getItem("api_error");
-    if (stored) {
-      try {
-        setErrorInfo(JSON.parse(stored));
-      } catch {
-        // Ignore parse errors
-      }
-      // Clear after reading
-      sessionStorage.removeItem("api_error");
+  const [errorInfo] = useState<ApiError | null>(() => {
+    if (typeof globalThis.window === "undefined") {
+      return null;
     }
-  }, []);
+    const stored = sessionStorage.getItem("api_error");
+    if (!stored) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(stored) as ApiError;
+      sessionStorage.removeItem("api_error");
+      return parsed;
+    } catch {
+      return null;
+    }
+  });
 
   const handleRetry = () => {
     router.back();

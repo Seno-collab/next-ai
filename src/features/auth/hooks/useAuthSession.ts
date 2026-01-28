@@ -16,24 +16,12 @@ type AuthAction = "login" | "logout" | "register" | "refresh" | "profile";
 
 type AuthResponsePayload = {
   message?: string;
-  response_code?: string | number;
   data?: Record<string, unknown>;
   user?: AuthPublicUser | null;
   tokens?: Record<string, unknown>;
 };
 
 type TokenRecord = Record<string, unknown>;
-
-function parseResponseCode(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
 
 function extractTokens(payload: unknown): StoredAuthTokens | null {
   if (!payload || typeof payload !== "object") {
@@ -92,12 +80,6 @@ export function useAuthSession() {
         headers: JSON_HEADERS,
         body: JSON.stringify(loginPayload),
       });
-      const responseCode = parseResponseCode(response.response_code);
-      if (responseCode !== null && responseCode >= 400) {
-        const message = typeof response.message === "string" ? response.message : t("auth.errors.loginFailed");
-        setError(message);
-        throw new Error(message);
-      }
       const tokens = extractTokens(response);
       if (!tokens) {
         const message = t("auth.errors.missingTokenFromServer");

@@ -162,7 +162,9 @@ export const GET = withApiLogging(async (request: NextRequest) => {
         return NextResponse.json({ message }, { status });
       }
 
-      return NextResponse.json(data);
+      const sanitized = { ...data };
+      delete (sanitized as Record<string, unknown>).response_code;
+      return NextResponse.json(sanitized);
     } catch (error) {
       return NextResponse.json(
         { message: error instanceof Error ? error.message : t("menu.errors.loadFailed") },
@@ -233,6 +235,5 @@ export const GET = withApiLogging(async (request: NextRequest) => {
       total_pages: totalPages,
     },
     message: "OK",
-    response_code: 200,
   });
 });

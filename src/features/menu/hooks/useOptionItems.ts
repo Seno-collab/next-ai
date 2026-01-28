@@ -1,28 +1,16 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { fetchApiJson, notifyError, notifySuccess } from "@/lib/api/client";
+import { fetchApiJson, notifySuccess } from "@/lib/api/client";
 import type { OptionItem, OptionItemInput, OptionItemUpdate } from "@/features/menu/types";
 import { useLocale } from "@/hooks/useLocale";
 
 type OptionItemsResponse = { items: OptionItem[] };
 type OptionItemActionResponse = {
   message?: string;
-  response_code?: string | number;
 };
 
 type OptionItemAction = "fetch" | "create" | "update" | "delete";
-
-function parseResponseCode(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
 
 export function useOptionItems() {
   const { t } = useLocale();
@@ -32,13 +20,7 @@ export function useOptionItems() {
   const [error, setError] = useState<string | null>(null);
 
   const handleActionResponse = useCallback(
-    (response: OptionItemActionResponse, fallbackMessage: string) => {
-      const responseCode = parseResponseCode(response.response_code);
-      if (responseCode !== null && responseCode !== 200) {
-        const message = typeof response.message === "string" ? response.message : fallbackMessage;
-        notifyError(message);
-        throw new Error(message);
-      }
+    (response: OptionItemActionResponse) => {
       if (typeof response.message === "string") {
         notifySuccess(response.message);
       }
@@ -78,7 +60,7 @@ export function useOptionItems() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        handleActionResponse(response, t("variants.errors.createItemFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message = err instanceof Error ? err.message : t("variants.errors.createItemFailed");
         setError(message);
@@ -100,7 +82,7 @@ export function useOptionItems() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        handleActionResponse(response, t("variants.errors.updateItemFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message = err instanceof Error ? err.message : t("variants.errors.updateItemFailed");
         setError(message);
@@ -120,7 +102,7 @@ export function useOptionItems() {
         const response = await fetchApiJson<OptionItemActionResponse>(`/api/menu/option-item/${id}`, {
           method: "DELETE",
         });
-        handleActionResponse(response, t("variants.errors.deleteItemFailed"));
+        handleActionResponse(response);
       } catch (err) {
         const message = err instanceof Error ? err.message : t("variants.errors.deleteItemFailed");
         setError(message);
